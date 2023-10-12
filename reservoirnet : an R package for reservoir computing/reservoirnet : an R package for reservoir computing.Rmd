@@ -82,23 +82,24 @@ RC is a machine learning algorithm composed of an input layer denoted $u(t)$ whi
 knitr::include_graphics(here::here("reservoirnet : an R package for reservoir computing/images/schema.png/image1.png"))
 ```
 
-The input layer $u(t)$ is an $M$-dimension vector which corresponds to the values of the input time series at time $t$ where $t = 1, …, T$. The reservoir layer $x(t)$ is an $Nres$-dimensional vector where $Nres$ is the number of nodes in the reservoir. The value $x(t)$ is defined as follow:
+The input layer $u(t)$ is an $M$-dimension vector which corresponds to the values of the input time series at time $t$ where $t = 1, …, T$. The reservoir layer $x(t)$ is an $N_{res}$-dimensional vector where $N_{res}$ is the number of nodes in the reservoir. The value $x(t)$ is defined as follow:
 
+$$x( t+1 ) = ( 1 - \alpha )  x ( t) + \alpha \: tanh( W x(t) + W_{in} u(t+1) ) \text{ where } \alpha \in [0, 1 ]$$
 
+The leaking rate alpha define the rate of update of the nodes. The closer $\alpha$ is to $1$, the higher the reservoir is sensitive to new inputs (i.e $u(t)$). Therefore, the reservoir state at time $t+1$ denoted $x(t+1)$ depends on the reservoir state at the previous time (i.e $x(t)$) and the new inputs (i.e $u(t+1)$). Both $W_{in}$ and $W$ are random matrices of size $Nres \times M$ and $Nres \times Nres$ respectively.
 
-where 
-
-The leaking rate alpha define the rate of update of the nodes. The closer alpha is to 1, the higher the reservoir is sensitive to new inputs (i.e u(t)). Therefore, the reservoir state at time t+1 denoted x(t+1) depends on the reservoir state at the previous time (i.e x(t)) and the new inputs (i.e u(t+1)). Both Win and W are random matrices of size Nres x M and Nres x Nres respectively.
-
-Win is a dense matrix generated using a bernouilli distribution where each value can be either -IS(m) or IS(m) with an equal probability where m = 1, …, M corresponds to a given feature in the input layer. The input scaling, denoted IS, is an hyperparameter coefficient wich can be common to all features from the input layer or specific to each feature m. In that case, the more important the feature is, the greater should be its input scaling.  W is a sparse matrix where values are generated base on a gaussian distribution with mean 0 and standard deviation equal to 1. Then the matrix W is rescaled according to the spectral radius, an hyperparameter defining the highest eigen value of W.
+$W_{in}$ is a dense matrix generated using a bernouilli distribution where each value can be either $-I_{scale}(m)$ or $I_{scale}(m)$ with an equal probability where $m = 1, …, M$ corresponds to a given feature in the input layer. The input scaling, denoted $I_{scale}$, is an hyperparameter coefficient which can be common to all features from the input layer or specific to each feature $m$. In that case, the more important the feature is, the greater should be its input scaling. $W$ is a sparse matrix where values are generated base on a gaussian distribution $\mathcal{N}(0,1)$. Then the matrix $W$ is rescaled according to the spectral radius, an hyperparameter defining the highest eigen value of $W$.
 
 The final layer is a linear regression with ridge penalization where the explanatory features are the reservoir state and the variable to be explain is the outcome to predict such that:
 
-where x(t) and y(t) are accumulated in X and Y respectively such that:
-and 
+$$W_{out} = YX^T ( XX^T + \lambda  I)^{ -1 }$$
 
+Where x(t) and y(t) are accumulated in X and Y respectively such that:
 
-The parameter lambda is the ridge penalisation which aims to prevent overfitting.
+$$X = \begin{bmatrix} x(1) \\ x(2) \\ ... \\ x(T) \end{bmatrix}
+\text{ and } Y = \begin{bmatrix} y(1) \\ y(2) \\ ... \\ y(T) \end{bmatrix}$$
+
+The parameter $\lambda$ is the ridge penalisation which aims to prevent overfitting.
 
 Overall, there are four main hyperparameters to be chosen by the user: the leaking rate wich defines the memory of the RC, the input scaling wich define the relative importance of the features, the spectral radius wich define the connections of the neurons inside the reservoir and the ridge penalization wich defines the degree of overfitting. The choice of hyperparameter is difficult and the use of a wrapper approach where the performance of the RC with different combinations of hyperparameters is evaluated on a train set, the best combination is chosen for the use on the test set.
 
@@ -108,52 +109,48 @@ The interest of RC in high dimensional setting is unclear for at least two reaso
 
 To tackle both problems, we proposed a genetic algorithm for hyperparameter optimisation including feature selection.
 
+1. Initialize :
+  - Population parameters : Npop = 200, Ne = 100, Ngeneration = 30
+  - Cross-over parameters : Ntournament = 2 
+  - Mutation parameters : pmutQuant = .5, pmutCat = .25, sigma = 1 (0.1 for leaking rate as the hyperparameter range is shorter)
+  - Define the hyperparameter_list, a list containing each param.
+  - For each param in hyperparameter_list define hyperparameter search_space : define the lower and upper bound, the type (numeric, integer, categorical) and if it should be log transformed (True, False)
 
-    1. Initialize:  
-        - Population parameters : Npop = 200, Ne = 100, Ngeneration = 30
-        - Cross-over parameters : Ntournament = 2 
-        - Mutation parameters : pmutQuant = .5, pmutCat = .25, sigma = 1 (0.1 for leaking rate as the hyperparameter range is shorter)
-        - Define the hyperparameter_list, a list containing each param.
-        - For each param in hyperparameter_list define hyperparameter search_space: define the lower and upper bound, the type (numeric, integer, categorical) and if it should be log transformed (True, False)
+2. Define tournamentSelection(Npop, Ntournament): 
+    - Get the best Npop individuals from previous generations 
+    - Randomly select Ntournament challengers among them
+    - Get the best individuals from the challengers
+    - Repeat twice to get a father and a mother 
+    - return father, mother 
+3. Define crossoverMutation(pere.param.value, mere.param.value, param.search_space): 
+    - sample alp and mut from a Uniform(0,1) distribution
+    - If search_space.log is True then  pere.param.value, mere.param.value = log10(pere.param.value), log10(mere.param.value)
+    - Cross-over, and define child.param.value as :
+        - Numerical : alp*pere.param.value + (1-alp)*mere.param.value
+        - Integer : round( alp*pere.param.value + (1-alp)*mere.param.value)
+        - Categorical : random choice (list = [pere.param.value, mere.param.value], prob = [alp, 1-alp]) 
+    - Mutation if mut < pmutQuant or mut < pmutCat for quantitative and categorical features respectively and update child.param.value
+        - Categorical : Randomly selected an other modality 
+        - Integer : Randomly add or substract 1 
+        - Numerical : Add sigma * N(0,1) 
+    - If search_space.log is True then child.param.value = 10^child.param.value
+    - Return child.param.value
 
-    2. Define tournamentSelection(Npop, Ntournament): 
-        - Get the best Npop individuals from previous generations 
-        - Randomly select Ntournament challengers among them
-        - Get the best individuals from the challengers
-        - Repeat twice to get a father and a mother 
-        - return father, mother 
+4. Define geneticSearch(Npop, Ntournament) :
+    - pere, mere = tournamentSelection(Npop, Ntournament)
+    - for param in  hyperparameter_list :
+        - child.param.value = crossoverMutation(pere.param.value, mere.param.value, param.search_space)
+    - return child.param
 
-    3. Define crossoverMutation(pere.param.value, mere.param.value, param.search_space): 
-        - sample alp and mut from a Uniform(0,1) distribution
-        - If search_space.log is True then  pere.param.value, mere.param.value = log10(pere.param.value), log10(mere.param.value)
-        - Cross-over, and define child.param.value as:
-            - Numerical : alp*pere.param.value + (1-alp)*mere.param.value
-            - Integer : round( alp*pere.param.value + (1-alp)*mere.param.value)
-            - Categorical : random choice (list = [pere.param.value, mere.param.value], prob = [alp, 1-alp]) 
-        - Mutation if mut < pmutQuant or mut < pmutCat for quantitative and categorical features respectively and update child.param.value
-            - Categorical : Randomly selected an other modality 
-            - Integer : Randomly add or substract 1 
-            - Numerical : Add sigma * N(0,1) 
-        - If search_space.log is True then child.param.value = 10^child.param.value
-        - Return child.param.value
+Step 1 : Initialize genetic algorithm
 
+- Sample Npop individuals (i.e set of hyperparameters) using random search
 
-    4. Define geneticSearch(Npop, Ntournament):
-            - pere, mere = tournamentSelection(Npop, Ntournament)
-            - for param in  hyperparameter_list:
-                - child.param.value = crossoverMutation(pere.param.value, mere.param.value, param.search_space)
-            - return child.param
-
-
-Step 1: Initialize genetic algorithm
-
-Sample Npop individuals (i.e set of hyperparameters) using random search
-
-Step 2: Run genetic algorithm
-generation = 1
-While generation <  Ngeneration:	
-	generation = generation + 1
-	sample Npop individuals using  geneticSearch method
+Step 2 : Run genetic algorithm
+- generation = 1
+While generation <  Ngeneration :	
+    generation = generation + 1
+    sample Npop individuals using geneticSearch method
 
 3) Basic package use
 
