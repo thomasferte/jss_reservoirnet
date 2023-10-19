@@ -1,5 +1,6 @@
 ---
 documentclass: jss
+bibliography: article.bib
 author:
   - name: FirstName LastName
     orcid: 0000-0000-0000-0000
@@ -16,6 +17,18 @@ author:
     # To add another line, use \AND at the end of the previous one as above
   - name: Third Author
     orcid: 0000-0000-0000-0000
+    affiliation: 'Affiliation'
+    # To add another line, use \AND at the end of the previous one as above
+  - name: Third Author
+    orcid: 0000-0000-0000-0000
+    affiliation: 'Affiliation \AND'
+    # To add another line, use \AND at the end of the previous one as above
+  - name: Third Author
+    orcid: 0000-0000-0000-0000
+    affiliation: 'Affiliation'
+    # To add another line, use \AND at the end of the previous one as above
+  - name: Fourth Author
+    orcid: 0000-0000-0000-0000
     address: |
       | Department of Statistics and Mathematics,
       | Faculty of Biosciences,
@@ -26,11 +39,11 @@ author:
     # use a different affiliation in adress field (differently formated here)
     affiliation2: Universitat Autònoma de Barcelona
 title:
-  formatted: "A Capitalized Title: Something about a Package \\pkg{foo}"
+  formatted: "Reservoir computing in R : a tutorial using \\pkg{reservoirnet}"
   # If you use tex in the formatted title, also supply version without
-  plain:     "A Capitalized Title: Something about a Package foo"
+  plain:     "Reservoir computing in R : a tutorial using reservoirnet"
   # For running headers, if needed
-  short:     "\\pkg{foo}: A Capitalized Title"
+  short:     "\\pkg{reservoirnet}: reservoir computing in R"
 abstract: >
   The abstract of the article.
 keywords:
@@ -46,11 +59,12 @@ output:
     default
 knit: (function(inputFile, encoding){
   rmarkdown::render(inputFile, encoding = encoding,
-  output_dir = here::here("output"), output_format = "all") })
+  output_dir = here::here("draft_jss"), output_format = "all") })
 ---
 
 ```{r, setup, include=FALSE}
 options(prompt = 'R> ', continue = '+ ')
+set.seed(1)
 ```
 
 # Introduction
@@ -126,7 +140,7 @@ trained to foreast the outcome denoted as $y(t)$ as depicted at figure
 \@ref(fig:rcpresentation).
 
 ```{r rcpresentation, echo=FALSE, fig.cap="my caption", out.width = '90%', fig.cap="Reservoir computing is composed of an input layer, a reservoir and an output layer. Connection between input layer and reservoir and inside reservoir are random. Only the output layer is optimized based on a ridge penalized linear regression."}
-knitr::include_graphics(here::here("reservoirnet : an R package for reservoir computing/images/schema.png/image1.png"))
+knitr::include_graphics("images/schema.png/image1.png")
 ```
 
 The input layer $u(t)$ is an $M$-dimension vector which corresponds to
@@ -280,64 +294,68 @@ using:
 install.packages("reservoirnet")
 ```
 
+Reservoir Computing (RC) is well suited to both regression and
+classification tasks. We will introduce a simple example for both task.
+
 ## Classification
 
-Reservoir Computing (RC) is well suited to both regression and classification tasks. We will introduce a simple example of classification task. This chapter is largely inspired from reservoirnet vignette on
-[classification](https://cran.r-project.org/web/packages/reservoirnet/vignettes/Classification_with_RC.html).
+This example is largely inspired from the [classification tutorial of reservoirpy](https://github.com/reservoirpy/reservoirpy/blob/master/tutorials/5-Classification-with-RC.ipynb). The first step is to load useful packages. For this example we will load both reservoirnet, ggplot2 [@wickham_ggplot2_2016] and dplyr
+[@wickham_dplyr_2023].
 
-The first step is to load useful packages. For this example we will load both reservoirnet and ggplot2 (add ref) a useful package for datavisualisation.
-
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(reservoirnet)
 library(ggplot2)
+library(dplyr)
 ```
 
 ### The Japanese vowel dataset
 
-The Japanese vowel dataset is composed of 640 utterances of the Japanese vowel \ae, from 9 different male speakers. The goal of this task is to assign to each utterance the label of its speaker. Dataset is split between a 270 utterances training set and a 340 utterances testing set. Each spoken utterance is a timeseries of 7\~29 timesteps. Each timestep of signal is a 12 dimensional vector representing Linear Prediction Coefficient (LPC), which encode the audio signal into the cepstral domain (a variant of the frequency domain).
-
-References M. Kudo, J. Toyama and M. Shimbo. (1999). "Multidimensional
-Curve Classification Using Passing-Through Regions". Pattern Recognition
-Letters, Vol. 20, No. 11--13, pages 1103--1111.
-<https://archive.ics.uci.edu/ml/machine-learning-databases/JapaneseVowels-mld/>
-
-The data set is splitted into a train and a test set.
+To illustrate the classification task, we will use the Japanese vowel dataset (@kudo_multidimensional_1999). The data can be loaded from reservoirnet as follow :
 
 ```{r}
-japanese_vowels <- reservoirnet::generate_data(dataset = "japanese_vowels")$japanese_vowels
-
+japanese_vowels <- reservoirnet::generate_data(dataset = "japanese_vowels")[[1]]
 X_train <- japanese_vowels$X_train
 Y_train <- japanese_vowels$Y_train
 X_test <- japanese_vowels$X_test
 Y_test <- japanese_vowels$Y_test
 ```
 
-```{r fig.cap="Vowel dataset"}
-sample_per_speaker <- 30
-n_speaker <- 9
-X_train_per_speaker <- list()
+The dataset is composed of 640 utterances of the Japanese vowel \ae, from 9 different speakers. The goal is to assign each uterance to the its speaker. Each utterances is a time series of 7 to 29 timesteps encoded by a 12 dimensional vector representing Linear Prediction Coefficient (LPC).
 
-for (i in 0:8) {
- X_speaker <- X_train[((i*sample_per_speaker)+1):((i+1)*sample_per_speaker)]
- X_train_per_speaker[[i+1]]<-(as.numeric(unlist(sapply(X_speaker, t))))
-}
+```{r fig.cap="Vowel dataset, sample with 3 speakers and 2 utterance each."}
+vec_sample <- c(1, 2, 41, 42, 71, 72)
+dfplot_vowel <- lapply(vec_sample,
+                 FUN = function(i){
+                   speaker <- which(Y_test[[i]] == 1)
+                   X_test[[i]] %>%
+                     as.data.frame() %>%
+                     tibble::rowid_to_column(var = "Time") %>%
+                     tidyr::pivot_longer(cols = -Time,
+                                         names_to = "component",
+                                         values_to = "LPC") %>%
+                     mutate(speaker = speaker, .before = 1,
+                            uterrance = i) %>%
+                     return()
+                 }) %>%
+  bind_rows()
 
-d <- data.frame(LPC = unlist(X_train_per_speaker), 
-                Speaker = factor(rep(1:9,times = sapply(X_train_per_speaker,length))))
+ggplot(dfplot_vowel, mapping = aes(x = Time, y = LPC, color = component)) +
+  geom_line() +
+  facet_wrap(uterrance ~ speaker,
+             labeller = label_bquote(cols = "speaker" : .(speaker)),
+             ncol = 2) +
+  theme_minimal() +
+  theme(legend.position = "none")
 
-# plot data
-ggplot(d,aes(x = Speaker, y = LPC)) + geom_boxplot()+theme_bw()
 ```
 
 ### Echo state network setup
 
 #### Transduction (sequence-to-sequence model)
 
-As ReservoirPy Nodes are built to work on sequences, the simplest setup
-to solve this task is sequence-to-sequence encoding, also called
-transduction. A model is trained on encoding each vector of input
-sequence into a new vector in the output space. Thus, a sequence of
-audio yields a sequence of label, one label per timestep.
+We can first solve this task using a sequence-to-sequence encoding approach. For this task, the goal is to predict the speaker for each time step of each utterance.
+
+The first step is to get the data where the label is repeated for each time step. This is easily done with the `repeat_targets` argument as follow :
 
 ```{r}
 japanese_vowels <- reservoirnet::generate_data(
@@ -350,59 +368,81 @@ X_test <- japanese_vowels$X_test
 Y_test <- japanese_vowels$Y_test
 ```
 
-#### Train a simple Echo State Network to solve this task:
+Then we can train a simple Echo State Network to solve this task. Here we will connect both the input layer and the reservoir layer to the readout layer.
 
 ```{r}
 source <- createNode("Input")
 readout <- createNode("Ridge",ridge=1e-6)
 reservoir <- createNode("Reservoir",units = 500,lr=0.1, sr=0.9)
 
-#[source >> reservoir, source] >> readout
 model <- list(source %>>% reservoir, source) %>>% readout
 ```
 
-#### Fit the model
+We can then fit the model and predict the labels for the test data :
 
 ```{r}
 model_fit <- reservoirnet::reservoirR_fit(node = model,
-                                       X = X_train,
-                                       Y = Y_train,
-                                       stateful = FALSE,
-                                       warmup = 2)
+                                          X = X_train,
+                                          Y = Y_train,
+                                          stateful = FALSE,
+                                          warmup = 2)
 
 Y_pred <- reservoirnet::predict_seq(node = model_fit$fit,
-                                 X = X_test,
-                                 stateful = FALSE)
+                                    X = X_test,
+                                    stateful = FALSE)
 ```
 
-Get the scores:
+From the `Y_pred` and `Y_test` we can represent graphically the forecast for some patients :
 
-There are 9 speakers, hence the output space is 9-dimensional. The
-speaker label is the index of the output neuron with maximum activation.
+```{r fig.cap="Prediction in a sequence-to-sequence approach 6 samples with 3 speakers and 2 utterance each. The higher the score of the speaker, the lighter the color.", fig.height=6}
+dfplotseqtoseq <- lapply(vec_sample,
+                 FUN = function(i){
+                   speaker <- which(Y_test[[i]][1,] == 1)
+                   Y_pred[[i]] %>%
+                     as.data.frame() %>%
+                     tibble::rowid_to_column(var = "Time") %>%
+                     tidyr::pivot_longer(cols = -Time,
+                                         names_to = "pred_speaker",
+                                         values_to = "prediction") %>%
+                     mutate(pred_speaker = gsub(x = pred_speaker,
+                                                pattern = "V", "")) %>%
+                     mutate(speaker = speaker, .before = 1,
+                            uterrance = i) %>%
+                     return()
+                 }) %>%
+  bind_rows()
 
-```{r}
-accuracy <- function(pred, truth){
-  mean(pred == truth)
-}
+ggplot(dfplotseqtoseq, mapping = aes(x = Time,
+                                     y = pred_speaker,
+                                     fill = prediction)) +
+  geom_tile() +
+  facet_wrap(uterrance ~ speaker,
+             labeller = label_bquote(cols = "speaker" : .(speaker)),
+             ncol = 2) +
+  theme_minimal() +
+  labs(y = 'Predicted speaker',
+       fill = "Prediction score")
 ```
 
+For those 6 utterances, the model correctly identify the speaker for most of the time steps. We can then evaluate the overall accuracy of the model :
+
 ```{r}
-Y_pred_class <- sapply(Y_pred, FUN = function(x) apply(as.matrix(x),1,which.max))
-Y_test_class <- sapply(Y_test, FUN = function(x) apply(as.matrix(x),1,which.max))
+accuracy <- function(pred, truth) mean(pred == truth)
+
+Y_pred_class <- sapply(Y_pred, FUN = function(x) apply(as.matrix(x),
+                                                       1,
+                                                       which.max))
+Y_test_class <- sapply(Y_test, FUN = function(x) apply(as.matrix(x),
+                                                       1,
+                                                       which.max))
 score <- accuracy(array(unlist(Y_pred_class)), array(unlist(Y_test_class)))
 
 print(paste0("Accuracy: ", round(score * 100,3) ,"%"))
 ```
 
-    ## [1] "Accuracy: 91.296%"
-
 ### Classification (sequence-to-vector model)
 
-We can create a more elaborated model where inference is performed only
-once on the whole input sequence. Indeed, we only need to assign one
-label to each input sequence. This new setup is known as a
-sequence-to-vector model, and this is usually the type of model we refer
-to when talking about classification of sequencial patterns.
+Another approach is the sequence-to-vector encoding. For this task we aim to predict the speaker of the whole utterance instead of the speaker of each time step (i.e the label is assign to the whole sequence).
 
 ```{r}
 japanese_vowels <- reservoirnet::generate_data(
@@ -414,75 +454,415 @@ X_test <- japanese_vowels$X_test
 Y_test <- japanese_vowels$Y_test
 ```
 
-```{r}
-source <- reservoirnet::createNode("Input")
-readout <- reservoirnet::createNode("Ridge",ridge=1e-6)
-reservoir <- reservoirnet::createNode("Reservoir", units = 500, lr=0.1, sr=0.9)
+In this example, we only connect the reservoir to the output layer.
 
-#source >> reservoir >> readout
-model <- source %>>% reservoir %>>% readout
+```{r}
+reservoir <- reservoirnet::createNode("Reservoir", units = 500, lr=0.1, sr=0.9)
+readout <- reservoirnet::createNode("Ridge",ridge=1e-6)
 ```
 
-We need to modify the training loop by hand a bit to perform this task:
-
-first, we compute all reservoir states over the input sequence using the
-reservoir.run method. then, we gather in a list only the last vector of
-the states sequence.
+To perform this task, we need to modify the training and testing process. Thanks to the echo property of RC, the information of previous time step is stored in the reservoir (i.e RC have a "memory"). Therefore, the last vector of states accumulates information from all previous states. For this task of sequence-to-vector encoding we only use this last state. This performed as follow :
 
 ```{r}
 states_train = list()
 k <- 1
 for (x in X_train) {
-  states <- reservoirnet::predict_seq(node = reservoir, X = x, reset=TRUE)
+  states <- reservoirnet::predict_seq(node = reservoir, X = x,
+                                      reset=TRUE)
   states_train[[k]] <- t(as.matrix(states[nrow(states),]))
   k <- k+1
 }
 ```
 
-We can now train the readout only on the last state vectors. Here,
-Y_train is an array storing a single label for each utterance.
+Then we can train the readout based on this last state vector. In that case, `Y_train`
+
+We can now train the readout only on the last state vectors. Here `Y_train` contains a single label for each utterance.
 
 ```{r}
 res <- reservoirnet::reservoirR_fit(readout,X = states_train, Y = Y_train)
-summary(res)
 ```
 
-    ## Parametrs using to fit:
-    ##  warmup: 0 ; stateful: FALSE ; reset: FALSE 
-    ## results of fitting:
-    ## 'Ridge-5': Ridge(ridge=1e-06, input_bias=True, in=500, out=9)
-
-We also modify the inference code using the same method as above:
+The prediction is also modified to use only the final state :
 
 ```{r}
 Y_pred <- list()
 k <- 1
 for (x in X_test) {
-  states <- reservoirnet::predict_seq(node = reservoir, X = x, reset=TRUE)
-  y <- reservoirnet::predict_seq(node = readout, X = as.array(states[nrow(states),]))
+  states <- reservoirnet::predict_seq(node = reservoir, X = x,
+                                      reset=TRUE)
+  y <- reservoirnet::predict_seq(node = readout,
+                                 X = as.array(states[nrow(states),]))
   Y_pred[[k]] <- y
   k <- k+1
 }
 ```
 
-```{r}
-Y_pred_class <- sapply(Y_pred, FUN = function(x) apply(as.matrix(x),1,which.max))
-Y_test_class <- sapply(Y_test, FUN = function(x) apply(as.matrix(x),1,which.max))
+```{r fig.cap="Prediction in a sequence-to-sequence approach 6 samples with 3 speakers and 2 utterance each. The higher the score of the speaker, the lighter the color."}
+dfplotseqtovec <- lapply(vec_sample,
+                 FUN = function(i){
+                   speaker <- which(Y_test[[i]][1,] == 1)
+                   Y_pred[[i]] %>%
+                     as.data.frame() %>%
+                     tidyr::pivot_longer(cols = everything(),
+                                         names_to = "pred_speaker",
+                                         values_to = "prediction") %>%
+                     mutate(pred_speaker = gsub(x = pred_speaker,
+                                                pattern = "V", "")) %>%
+                     mutate(speaker = speaker, .before = 1,
+                            uterrance = i,
+                            target = speaker == pred_speaker) %>%
+                     return()
+                 }) %>%
+  bind_rows()
 
-score <- accuracy(pred = Y_test_class,
-                       truth = Y_pred_class)
+ggplot(dfplotseqtovec,
+       mapping = aes(x = pred_speaker,
+                     y = prediction,
+                     color = target)) +
+  geom_point() +
+  facet_wrap(uterrance ~ speaker,
+             labeller = label_bquote(cols = "speaker" : .(speaker)),
+             ncol = 2) +
+  scale_color_manual(values = c("darkgrey", "red")) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(y = 'Score',
+       fill = "Speaker")
+```
+
+We observe, for those 6 uterrances that the model is correct for each of them. We can also compute the overall accuracy :
+
+```{r}
+Y_pred_class <- sapply(Y_pred,
+                       FUN = function(x) apply(as.matrix(x),1,which.max))
+Y_test_class <- sapply(Y_test,
+                       FUN = function(x) apply(as.matrix(x),1,which.max))
+
+score <- accuracy(pred = Y_test_class, truth = Y_pred_class)
 
 print(paste0("Accuracy: ", round(score * 100,3) ,"%"))
 ```
 
-    ## [1] "Accuracy: 88.108%"
-
 ## Regression
 
-Vignette:
-<https://cran.r-project.org/web/packages/reservoirnet/vignettes/basic_usage_01.html>
+### Goal
 
-# Study case: Prediction covid-19
+Here you will learn basic use of reservoirnet package. This will be
+illustrated with the covid-19 dataset included in the pakage. Those data
+contain the hospitalisations, positive RT-PCR and overall RT-PCR from
+Santé Publique France available on data.gouv.fr (see `help(dfCovid)` for
+more informations). Our goal will be to forecast the number of
+hospitalised patients 14 days ahead. To do so, we will first learn on
+data prior to 2022-01-01 and forecast on the following data.
+
+We can load the data and set the given task :
+
+```{r}
+data("dfCovid")
+dist_forecast = 14
+traintest_date = as.Date("2022-01-01")
+```
+
+### Covid-19 data
+
+Because both RT-PCR have strong variations, we will first proceed by
+taking the moving average on the last 7 days of those features. Also we
+add an outcome and an `outcomeDate` colum which will be useful to train
+the model. Furthermore we will compute the
+`outcome_deriv = outcome - hosp` which corresponds to the variation of
+hospitalisation compared to the current number of hospitalized patients.
+
+```{r}
+dfOutcome <- dfCovid %>%
+  # outcome at 14 days
+  mutate(outcome = lead(x = hosp, n = dist_forecast),
+         outcomeDate = date + dist_forecast,
+         outcome_deriv = outcome - hosp) %>%
+  # rolling average for tested and positive_pcr
+  mutate_at(.vars = c("Positive", "Tested"),
+            .funs = function(x) slider::slide_dbl(.x = x,
+                                                  .before = 6,
+                                                  .f = mean))
+```
+
+We can now plot the data :
+
+```{r fig.cap="Hospitalisations, IPTCC and positive PCR of Bordeaux University Hospital."}
+dfOutcome %>%
+  tidyr::pivot_longer(cols = c("hosp", "Positive", "Tested")) %>%
+  ggplot2::ggplot(mapping = aes(x = date, y = value)) +
+  geom_line() +
+  facet_grid(name ~ ., scales = "free_y") +
+  theme_bw() +
+  geom_vline(mapping = aes(color = "train-test sets",
+                           xintercept = traintest_date)) +
+  labs(color = "") +
+  theme(legend.position = "bottom")
+```
+
+### First reservoir
+
+Setting a reservoir is easily done with the `createNode()` function. The
+important hyperparameters are the following :
+
+-   Number of nodes (`units`) : it corresponds to the number of nodes
+    inside the reservoir. Usually, the more the better but more nodes
+    increase the computation time.
+-   Leaking rate (`lr`) : the leaking rate corresponds to the balance
+    between the new inputs and the previous state. A leaking rate of 1
+    only consider informations from the new inputs.
+-   Spectral radius (`sr`): the spectral radius is the maximum absolute
+    eigenvalue of the reservoir connectivity matrix. A small spectral
+    radius induces stable dynamics inside the reservoir, a high spectral
+    radius induces chaotic regimen inside the reservoir.
+-   Input scaling (`input_scaling`): the input scaling is a gain applied
+    to the input features of the reservoir.
+
+For this part of the tutorial, we will set the hyperparameter at a given
+value. Hyperparameter opitmisation will be detailed at section [Study
+case](#studycase).
+
+```{r}
+reservoir <- reservoirnet::createNode(nodeType = "Reservoir",
+                                      seed = 1,
+                                      units = 500,
+                                      lr = 0.7,
+                                      sr = 1,
+                                      input_scaling = 1)
+```
+
+Then we can feed the data to the reservoir and see the activation
+depending on time of the reservoir. To do so, we first prepare the data
+and transform it to an array.
+
+```{r}
+## select explanatory and transform it to an array
+X <- dfOutcome %>%
+  filter(outcomeDate < traintest_date) %>%
+  select(hosp, Positive, Tested) %>%
+  as.matrix() %>%
+  as.array()
+```
+
+Then we run the `predict_seq` function. The parameter reset is set to
+TRUE to be sure that the node is clear from data (it is optional here).
+
+```{r}
+reservoir_state <- predict_seq(node = reservoir, X = X, reset = TRUE)
+```
+
+Now we can visualise node activation using the `plot` function :
+
+```{r fig.cap="Node acivation over time."}
+plot(reservoir_state)
+```
+
+We see a lot of nodes with a steady state. It will be really difficult
+for the ridge output layer to learn on those nodes because they present
+no information. The problem is caused by the different scales of the
+features, to take this into account, we can divide them by their maximum
+value to scale each of them between `-1` and `1` :
+
+```{r}
+stand_max <- function(x) return(x/max(x))
+# scaled features
+Xstand <- dfOutcome %>%
+  filter(date < traintest_date) %>%
+  select(hosp, Positive, Tested) %>%
+  mutate_all(.funs = stand_max) %>%
+  as.matrix() %>%
+  as.array()
+```
+
+We then feed them to the reservoir and plot the node activation :
+
+```{r fig.cap="Node acivation over time. Scaled features"}
+# feed them to the reservoir
+reservoir_state_stand <- predict_seq(node = reservoir,
+                                     X = Xstand,
+                                     reset = TRUE)
+# plot the output
+plot(reservoir_state_stand)
+```
+
+The reservoir dynamics now look much better as no node seem to get
+saturated.
+
+### Forecast
+
+In order to train the reservoir, we should train the last layer which
+linearly combines the neuron's output.
+
+#### Set the ESN
+
+First we define this last layer with a ridge penalty of `1e3`. This
+hyperparameter can also be optimised which will be discussed at section
+[Study case](#studycase).
+
+```{r}
+readout <- reservoirnet::createNode(nodeType = "Ridge",
+                                    ridge = 1e3)
+```
+
+And we connect it to the previously defined reservoir :
+
+```{r}
+model <- reservoirnet::link(reservoir, readout)
+```
+
+The model is now ready we must now train the last layer.
+
+#### Set the data
+
+First we separate the train set on which we will learn the ridge
+coefficients and the test set on which we will make the forecast. We
+define the train set to be all the data before 2022-01-01 and the test
+data to be all the data to have forecast both on train and test set.
+
+```{r}
+# train set
+yTrain <- dfOutcome %>%
+  filter(outcomeDate <= traintest_date) %>%
+  select(outcome)
+yTrain_variation <- dfOutcome %>%
+  filter(outcomeDate <= traintest_date) %>%
+  select(outcome_deriv)
+xTrain <- dfOutcome %>%
+  filter(outcomeDate <= traintest_date) %>%
+  select(hosp, Positive, Tested)
+# test set
+xTest <- dfOutcome %>%
+  select(hosp, Positive, Tested)
+```
+
+We now standardise with the same formula as seen before. We learn the
+standardisation on the training set :
+
+```{r}
+# standardise based on training set values
+ls_fct_stand <- apply(xTrain,
+                      MARGIN = 2,
+                      FUN = function(x) function(feature) return(feature/(max(x))))
+```
+
+And we apply it to both the train and test sets :
+
+```{r results=FALSE}
+xTrainstand <- xTrain
+xTeststand <- xTest
+lapply(X = names(ls_fct_stand),
+       FUN = function(x){
+         xTrainstand[,x] <<- ls_fct_stand[[x]](feature = xTrain[,x])
+         xTeststand[,x] <<- ls_fct_stand[[x]](feature = xTest[,x])
+         return()
+       })
+```
+
+Finally we convert all those data to array :
+
+```{r}
+# convert to array
+lsdf <- lapply(list(yTrain = yTrain,
+                    yTrain_variation = yTrain_variation,
+                    xTrain = xTrainstand,
+                    xTest = xTeststand),
+               function(x) as.array(as.matrix(x)))
+```
+
+#### Train the model and predict
+
+Now, the easy part. We are going to train the reservoir with the train
+set. To do so, we set a warmup of 30 days during which the data are
+propagating into the reservoir but not used to fit the ridge layer.
+
+```{r}
+### train the reservoir ridge output
+fit <- reservoirnet::reservoirR_fit(node = model,
+                                    X = lsdf$xTrain,
+                                    Y = lsdf$yTrain,
+                                    warmup = 30,
+                                    reset = TRUE)
+```
+
+Now that the ridge layer is trained, we can perform predictions as seen
+before. We set the parameter `reset` to TRUE in order to clean the
+reservoir from the data used by the training set.
+
+```{r}
+### predict with the reservoir
+vec_pred <- reservoirnet::predict_seq(node = fit$fit,
+                                      X = lsdf$xTest,
+                                      reset = TRUE)
+```
+
+```{r fig.cap="Forecast"}
+dfOutcome %>%
+  mutate(pred = vec_pred) %>%
+  na.omit() %>%
+  ggplot(mapping = aes(x = outcomeDate)) +
+  geom_line(mapping = aes(y = outcome,
+                          color = "observed")) +
+  geom_line(mapping = aes(y = pred,
+                          color = "forecast")) +
+  geom_vline(mapping = aes(color = "train-test sets",
+                           xintercept = traintest_date)) +
+  scale_color_manual(values = c("#3772ff", "#080708", "#df2935")) +
+  theme_bw() +
+  labs(color = "", x = "Date", y = "Hospitalisations")
+```
+
+We observe that the model forecast is not fully accurate, both on the
+test set and the train set. In that case, one option could be to reduce
+ridge penalisation to fit more closely the data, the optimisation of
+ridge hyperparameter will be discussed at section [Study
+case](#studycase). Another possibility is to ease the learning of the
+algorithm by forecasting the variation of the hospitalisation instead of
+the number of hospitalised patients. For that step, we will learn on the
+`outcome_deriv` contained in `yTrain_variation` data which is defined
+outcome as `outcome_deriv = outcome - hosp`.
+
+```{r fig.cap="Covid-19 hospitalisations forecast. The model is either trained to forecast the number of hospitalisations (denoted Raw) or the variation of the hospitalisations compared to current level of hospitalisation (denoted Variation)"}
+## Fit reservoir on outcome variation instead of raw outcome
+fit2 <- reservoirnet::reservoirR_fit(node = model,
+                                     X = lsdf$xTrain,
+                                     Y = lsdf$yTrain_variation,
+                                     warmup = 30,
+                                     reset = TRUE)
+## Get the forecast on the test set
+vec_pred2_variation <- reservoirnet::predict_seq(node = fit2$fit,
+                                                 X = lsdf$xTest,
+                                                 reset = TRUE)
+## Transform the outome variation forecast into hospitalisation forecast
+vec_pred2 <- vec_pred2_variation + xTest$hosp
+## Plot the results
+dfOutcome %>%
+  mutate(Raw = vec_pred,
+         Variation = vec_pred2) %>%
+  tidyr::pivot_longer(cols = c(Raw, Variation),
+                      names_to = "Outcome_type",
+                      values_to = "Forecast") %>%
+  na.omit() %>%
+  ggplot(mapping = aes(x = outcomeDate)) +
+  geom_line(mapping = aes(y = outcome,
+                          color = "observed")) +
+  geom_line(mapping = aes(y = Forecast,
+                          color = "Forecast")) +
+  geom_vline(mapping = aes(color = "train-test sets",
+                           xintercept = traintest_date)) +
+  facet_wrap(Outcome_type ~ .,
+             labeller = label_bquote(cols = "Outcome" : .(Outcome_type))) +
+  scale_color_manual(values = c("#3772ff", "#080708", "#df2935")) +
+  theme_minimal() +
+  labs(color = "", x = "Date", y = "Hospitalisations")
+```
+
+We observe an improvement of the forecast compared to the forecast of
+hospitalisation previously discussed. From there, many improvement can
+be implemented including : frequent update of the model, leverage
+additional features and hyperparameter optimisation. This notions will
+be discussed in the next [section](#studycase).
+
+# Study case: Prediction covid-19 {#studycase}
 
 what is covid-19 and covid-19 pandemic
 
@@ -495,7 +875,7 @@ and many models struggled to perform well.
 In this setting, reservoir computing seem to be an appropriate approach
 regarding the task.
 
-4.1) Study case
+## Study case
 
 This use case is based on data from Bordeaux University Hospital. During
 the pandemic a predictive model was elaborate and regularly use to
@@ -504,9 +884,9 @@ hospital. In this work we will compare the first approach based on
 linear regression with elastic-net penalisation to reservoir computing
 approach.
 
-4.2) Evaluation framework
+## Evaluation framework
 
--   Train and test set
+### Train and test set
 
 The task was to forecast 14 days ahead the number of hospitalised
 patients. The dataset was separated into two periods. First period from
@@ -529,45 +909,57 @@ Median absolute error (AE): Median relative error (RE):
 -   Baseline model (forecast at T+14 = observed at T)
 -   Metrics
 
-4.3) Hyperparameter optimisation using GA
+## Hyperparameter optimisation using GA
 
 -   Recall hyperparameters
 -   Present GA algorithm + explain why it is important here (large
     number of hp + assumption free compared to other algorithm, cons =
     expensive)
 
-4.4) Present results from GA
+## Present results from GA
 
 -   Present results and detail them
 
-5)  Discussion and conclusion
+## Present forecast performance
 
-<!-- ## Code formatting -->
+## Discussion on use case
 
-<!-- In general, don't use Markdown, but use the more precise LaTeX commands instead: -->
+# Previous work
 
-<!-- * \proglang{Java} -->
+Those work were done previously, the setting of train/test and
+hyperparameter optimisation were different and probably they should be
+done again in a similar setting for relevant comparison.
 
-<!-- * \pkg{plyr} -->
+## Raw outcome, first derivative or second derivative ?
 
-<!-- One exception is inline code, which can be written inside a pair of backticks (i.e., using the Markdown syntax). -->
+See
+<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/00_reporting/explore_esn.md>
 
-<!-- If you want to use LaTeX commands in headers, you need to provide a `short-title` attribute. You can also provide a custom identifier if necessary. See the header of Section \ref{r-code} for example. -->
+## Raw feature or scaled feature ?
 
-<!-- # \proglang{R} code {short-title="R code" #r-code} -->
+See
+<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/00_reporting/explore_esn.md>
 
-<!-- Can be inserted in regular R markdown blocks. -->
+## Smoothed or not smoothed
 
-<!-- ```{r} -->
+See
+<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/00_reporting/explore_esn.md>
 
-<!-- x <- 1:10 -->
+## Number of nodes
 
-<!-- x -->
+See
+<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/00_reporting/explore_esn_r_pipeline.md>
 
-<!-- ``` -->
+## Use of second derivative among the interesting features
 
-<!-- ## Features specific to \pkg{rticles} {short-title="Features specific to rticles"} -->
+See
+<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/00_reporting/tune_esn2.md>
 
-<!-- * Adding short titles to section headers is a feature specific to \pkg{rticles} (implemented via a Pandoc Lua filter). This feature is currently not supported by Pandoc and we will update this template if [it is officially supported in the future](https://github.com/jgm/pandoc/issues/4409). -->
+## Results of random sampling with R
 
-<!-- * Using the `\AND` syntax in the `author` field to add authors on a new line. This is a specific to the `rticles::jss_article` format. -->
+See
+<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/meeting_1801/master_report.md>
+
+# Discussion and conclusion
+
+# Bibliography

@@ -5,6 +5,7 @@
 *.Rproj
 *.odp
 *.odt
+*.docx
 *.pptx
 *lock*
 *.log
