@@ -149,14 +149,14 @@ reservoir layer $x(t)$ is an $N_{res}$-dimensional vector where
 $N_{res}$ is the number of nodes in the reservoir. The value $x(t)$ is
 defined as follow:
 
-$$x( t+1 ) = ( 1 - \alpha )  x ( t) + \alpha \: tanh( W x(t) + W_{in} u(t+1) ) \text{ where } \alpha \in [0, 1 ]$$
+$$x( t+1 ) = ( 1 - \alpha )  x ( t) + \alpha \: tanh( W x(t) + W_{in} u(t+1) )", "ext{ where } \alpha \in [0, 1 ]$$
 
 The leaking rate alpha define the rate of update of the nodes. The
 closer $\alpha$ is to $1$, the higher the reservoir is sensitive to new
 inputs (i.e $u(t)$). Therefore, the reservoir state at time $t+1$
 denoted $x(t+1)$ depends on the reservoir state at the previous time
 (i.e $x(t)$) and the new inputs (i.e $u(t+1)$). Both $W_{in}$ and $W$
-are random matrices of size $Nres \times M$ and $Nres \times Nres$
+are random matrices of size $Nres", "imes M$ and $Nres", "imes Nres$
 respectively.
 
 $W_{in}$ is a dense matrix generated using a bernouilli distribution
@@ -226,7 +226,7 @@ install.packages("reservoirnet")
 Reservoir Computing (RC) is well suited to both regression and
 classification tasks. We will introduce a simple example for both task.
 
-## Regression
+## Regression {#basicregression}
 
 ### Covid-19 data
 
@@ -583,12 +583,12 @@ dfplotseqtovec <- lapply(vec_sample,
 ggplot(dfplotseqtovec,
        mapping = aes(x = pred_speaker,
                      y = prediction,
-                     color = target)) +
-  geom_point() +
+                     fill = target)) +
+  geom_bar(stat = "identity") +
   facet_wrap(uterrance ~ speaker,
              labeller = label_bquote(cols = "speaker" : .(speaker)),
              ncol = 2) +
-  scale_color_manual(values = c("darkgrey", "red")) +
+  scale_fill_manual(values = c("darkgrey", "darkred")) +
   theme_minimal() +
   theme(legend.position = "none") +
   labs(y = 'Score',
@@ -712,64 +712,25 @@ RC can be approached as a complexification of penalized linear regression where 
 
 ## Methods
 
-### Data source
+### Data
 
-Aggregated data from May 16, 2020, to January 17, 2022, regarding French COVID-19 epidemic were included. In order to improve forecasting, several data sources were used.
+The study utilized aggregated data spanning from May 16, 2020, to January 17, 2022, regarding the COVID-19 epidemic in France, drawing from various sources to enhance forecasting accuracy. These sources encompassed epidemiological statistics from Santé Publique France, weather data from the National Oceanic and Atmospheric Administration (NOAA), both providing department-level data [@etalab_les_2020, @smith_integrated_2011] and Electronic Health Record (EHR) data from the Bordeaux Hospital providing hospital-level data. All data were daily updated. Santé Publique France data included information on hospitalizations, RT-PCR tests, positive RT-PCR results, variant prevalence, and vaccination data, categorized by age groups. NOAA data contributed temperature, wind speed, humidity, and dew point data, allowing for the computation of the COVID-19 Climate Transmissibility Predict Index [@roumagnac_etude_2021]. EHRs data included hospitalizations, ICU admissions, ambulance service records, and emergency unit notes, with relevant COVID-19-related concepts extracted from the notes. Data are discussed more in depth in @ferte_benefit_2022.
 
-#### Open data
-
-Open data included both epidemiologic data from Santé Publique France and weather data from National Oceanic and Atmospheric Administration (NOAA) Integrated Surface Database [@etalab_les_2020, @smith_integrated_2011]. Both provide department aggregated data and are daily updated.
-
-Santé Publique France data included hospitalizations, number of RT-PCR, positive RT-PCR, proportion of positive RT-PCR, dominant variant, and number of first dose vaccinated. RT-PCR data were available by age and were grouped as 0–19, 20–59, and 60 and more years old categories. Variant identification data before February 18, 2021 were not available, and majority variant before that date was assigned to wild type.
-
-NOAA data, including temperature, wind speed, humidity, and dew point, were extracted and the Predict Index for COVID-19 Climate Transmissibility—Index PREDICT de Transmissivité Climatique de la COVID-19—(IPTCC) was computed []. Missing weather data were imputed using a 2-step procedure: (1) the mean value of the adjacent department was imputed; (2) remaining missing values were imputed using last observation carried forward.
-
-#### EHR data
-
-The Bordeaux Hospital is a large structure comprising 3 hospital structures taking care of nearly 250 000 hospitalized patients and 100 000 emergency consultations during 2020.16 A data warehouse based on i2b2 structure was built in 2017.13 This star architecture is based on a central fact table where each row represents a diagnosis, a laboratory result, a procedure, a medical observation, etc. Each fact is related to other tables with information about the patient, the visit, the provider, or type of fact.17 This structure allows for quick data queries compared to the usual siloed organizations.
-
-To perform those queries, ontology alignment have been performed on laboratory results, and ad hoc natural language processing tools have been developed, including ROMEDI (ie, a French drug terminology to extract drug information from text), IAMsystem (ie, a dictionary-based approach for name entity recognition), and SmartCRF (ie, a software to visualize and annotate EHR).18–20 Several applied projects were performed using those tools including automatic detection of surgical site infection and transfusion associated circulatory overload.21,22
-
-Thanks to those previous experiences, the Bordeaux hospital data warehouse was used, during the pandemic, to describe the current state of the epidemic at the hospital level on a daily basis. Those data were then used in the forecast model including: hospitalizations, hospital and ICU admission and discharge, ambulance service notes, and emergency unit notes. Concepts related to COVID-19 were extracted from notes by dictionary-based approaches (eg, cough, dyspnea, COVID-19). Dictionaries were manually created based on manual chart review to identify terms used by practitioners. Then, the number and proportion of ambulance service calls or hospitalization in emergency units mentioning concepts related to COVID-19 were extracted. Detail of features is available in Supplementary Table S1.
-
-Due to different data acquisition mechanisms, there was a delay between the occurrence of events and the data acquisition. It was of 1 day for EHR data, 5 days for department hospitalizations and RT-PCR, 4 days for weather, 2 days for variants, and 4 days for vaccination. For the training and evaluation of the model, the chosen date was the date of data availability to mimic a real-time streaming forecast.
+First and second derivative over the last $7$ days were computed to enrich model information. To take into account measurement error and daily noise variation, data were smoothed using a local polynomial regression with a span of 21 days.
 
 ### Evaluation framework
 
+The task was to forecast 14 days ahead the number of hospitalised patients. As seen at section [Regression](#basicregression), we will train the model to predict the variation of hospitalisation defined as $outcome_{t+14} = hosp_{t+14} - hosp_{t}$. Metrics computation and visualisations will be performed on the predicted number of hospitalizations denoted as $\hat{y_{t+14}} = \widehat{outcome_{t+14}} + hospitalizations_{t}$ and the observed number of hospitalisations at time $t+14$ denoted as $y_{t+14} = hospitalizations_{t+14}$
 
+The dataset was separated into two periods. First period from May 16, 2020 to March 1, 2021 served to identify relevant hyperparameters. Remaining data was used to evaluate the model performance. As the time serie is not stationary and most appropriate hyperparameter value might change over time, we also investigated the effect of hyperparameter update every month.
 
-### Train and test set
-
-The task was to forecast 14 days ahead the number of hospitalised
-patients. The dataset was separated into two periods. First period from
-xx to xx served to identify relevant hyperparameters. Second period
-after xx was used to evaluate the model performance. As the time serie
-is not stationary and most appropriate hyperparameter value might change
-over time, we also investigated the effect of hyperparameter update
-every month.
-
-The performance of the model was evaluated according to several metrics:
-the median absolute error, the median relative error, the absolute error
-relative to baseline, the relative error relative to baseline. For each
-metric, the median was chosen over the mean to be robust to outliers.
-For instance, for relative error, when the outcome is low (e.g equal to
-1 hospitalisation), an error of 5 hospitalisations could results to a
-500% relative error.
-
-Median absolute error (AE): Median relative error (RE):
-
--   Baseline model (forecast at T+14 = observed at T)
--   Metrics
+The performance of the model was evaluated according to several metrics: the median absolute error ($MAE = median(|\hat{y_t}-y_t|)$) , the median relative error ($MRE = median(|\frac{\hat{y_t}-y_t}{y_t}|)$), the median absolute error to baseline ($MAEB =  median(|\hat{y_t}-y_t| - |y_{t-14} - y_t|)$), the median relative error to baseline ($MREB = median(\frac{|\hat{y_t}-y_t|}{|y_{t-14} - y_t|})$). Such that the model denoted as baseline was the model defined as $\hat{y_t} = y_{t-14}$. All those metrics reflects different information. $MAE$ and $MAEB$ are highly sensitive to forecast error when the number of hospitalizations is high. $MAEB$ encapsulates information about the current dynamic of the hospitalizations : for the same absolute error, absolute error to baseline will be lower if the number of hospitalization is not constant. **MAEB = redundant with MAE ?**. $MRE$ is highly sensitive to forecast error when the number of hospitalizations is low because the denominator will be small. $MREB$ is highly sensitive to small forecast error when the number of hospitalized patients is constant over time. For each metric, the median was chosen over the mean to be robust to outliers. For instance, for relative error, when the outcome is low (e.g equal to 1 hospitalization), an error of 5 hospitalizations could results to a 400% relative error. **But that might favor models with chaotic metric because only half of them will be used to compute the error ? => keep median for relative error and mean of absolute error and optimize on MAE instead of MREB ? Also, because MAE is a difference it is similar if we compute it on the number of hospitalization or on the variation of the number of hospitalization. Also we might discuss to penalize more the error when the number of hospitalizations is high (already done implicitly by AE) and when there is a dynamic shift => ponderate AE by absolute value of second derivative ?**.
 
 ### Hyperparameter optimisation using GA
 
--   Recall hyperparameters
--   Present GA algorithm + explain why it is important here (large
-    number of hp + assumption free compared to other algorithm, cons =
-    expensive)
+RC relies mainly on 4 hyperparameters including the leaking rate (i.e "memory" parameter), spectral radius (i.e "chaoticity" parameter), input scaling (i.e "feature gain" parameter) and ridge (i.e penalization parameter). Input scaling can be either common to all features or specific to each feature which increases the number of hyperparameter by the number of features. As the relevancy of feature for forecast evolves over time, we explored (i) filter based feature selection based on elastic-net before RC which has a penalization hyperparameter denoted as $enet$ and (ii) wrapper feature selection for which each feature has an additional binary hyperparameter defining if it should be selected or not.
 
-To tackle both problems, we proposed a genetic algorithm for
-hyperparameter optimisation including feature selection.
+Regarding the number of hyperparameter, an automatic approach is necessary the relevant hyperparameters. We chose to use a genetic algorithm (GA) which has the benefit of making few assumptions on the link function between the vector of hyperparameter value and the objective function but might need many trials which are possible due to the fast of RC. The objective function of GA was to minimize the $MREB$ metric **(change ?)**. The pseudo-code of GA is defined as follow :
 
 1.  Initialize :
 
@@ -817,7 +778,7 @@ hyperparameter optimisation including feature selection.
 
             -   Categorical : sample another modality
             -   Integer : add or substract 1 at random
-            -   Numerical : Add $\sigma \times \mathcal{N}(0,1)$
+            -   Numerical : Add $\sigma", "imes \mathcal{N}(0,1)$
 
         -   `if` $search\_space\$log$ :
             $child\$param\$value = 10^{child\$param\$value}$
@@ -839,14 +800,58 @@ hyperparameter optimisation including feature selection.
             -   sample $N_{pop}$ individuals using $geneticSearch$
                 function
 
+### Feature selection with RC
+
+We investigated the performance of RC using various feature selection approach and input scaling configuration. The following setting were evaluated :
+
+- Feature selection based on expert inputs with common input scaling
+- Feature selection based on expert inputs with specific input scaling for each feature
+- Genetic algorithm feature selection with common input scaling
+- Genetic algorithm feature selection with specific input scaling for each feature
+- Elastic-net feature selection with common input scaling
+
+Experts inputs were a priori defined features that were judge important for epidemic forecast : hospitalizations, positive RT-PCR, positive RT-PCR among the 60
+
+In addition, we investigated if monthly update of hyperparameter was improving the performance and if optimizing the random seed (which defines the connections inside the reservoir) was improving the results.
 
 ## Results
 
+### Data
+
+```{r casestudyhospitalisations, echo = FALSE, fig.cap = "Hospitalisations at the university hospital of Bordeaux", out.width="75%"}
+knitr::include_graphics(path = here::here("draft_jss/images/monthly update/fig-eval-setting-1.png"))
+```
+
 ### Present results from GA
 
--   Present results and detail them
-
 ### Present forecast performance
+
+```{r echo = FALSE}
+tibble::tribble(
+  ~"Update", ~"Feature", ~"Nb. Features", ~"MAE", ~"MRE", ~"MAEB", ~"MREB ",
+  "No", "Epi - Single IS", 14.0, 13.79, 0.34, -2.92, 0.77 ,
+  "Yes", "Epi - Single IS", 14.0, 10.16, 0.32, -5.09, 0.67 ,
+  "No", "Epi - Multiple IS", 14.0, 9.35, 0.28, -5.31, 0.66 ,
+  "Yes", "Epi - Multiple IS", 14.0, 11.83, 0.31, -2.03, 0.80 ,
+  "No", "GA - Single IS", 231.0, 10.62, 0.28, -5.05, 0.72 ,
+  "Yes", "GA - Single IS", 225.0, 9.33, 0.28, -4.76, 0.72 ,
+  "No", "GA - Multiple IS", 227.0, 9.67, 0.33, -3.64, 0.71 ,
+  "Yes", "GA - Multiple IS", 227.5, 9.45, 0.29, -3.90, 0.69 ,
+  "No", "GA - Multiple IS (seed)", 225.0, 10.68, 0.27, -4.37, 0.72 ,
+  "Yes", "GA - Multiple IS (seed)", 227.5, 10.20, 0.28, -5.33, 0.68 ,
+  "No", "Enet - Single IS", 172.0, 11.72, 0.31, -3.29, 0.79 ,
+  "Yes", "Enet - Single IS", 208.0, 13.68, 0.35, -2.58, 0.81) %>%
+  knitr::kable(caption = "Model performance with or without monthly update (Update), feature selection (Feature). For each setting, 40 reservoir are computed and the forecast is the median of the 40 forecast. Results show the mean number of features and the performance metrics. MAE = Median Absolute Error, MRE = Median Relative Error, MAEB = Median Absolute Error to Baseline, MREB = Median Relative Error to Baseline.",
+               booktabs = TRUE)
+```
+
+```{r echo = FALSE, fig.cap = "Reservoir computing forecast depending on the setting without monthly update. Red line is the median forecast of 40 reservoirs. Grey lines are individual forecast of each of the 40 reservoir.", out.width="75%"}
+knitr::include_graphics(path = here::here("draft_jss/images/monthly update/fig-eval-prediction-noupdate-1.png"))
+```
+
+```{r echo = FALSE, fig.cap = "Reservoir computing forecast depending on the setting with monthly update. Red line is the median forecast of 40 reservoirs. Grey lines are individual forecast of each of the 40 reservoir.", out.width="75%"}
+knitr::include_graphics(path = here::here("draft_jss/images/monthly update/fig-eval-prediction-update-1.png"))
+```
 
 ## Discussion
 
