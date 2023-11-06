@@ -3,9 +3,7 @@ library(dplyr)
 library(reservoirnet)
 ##### SLAR VARIABLES
 slar_taskid <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_ID"))
-# slar_taskid <- 1
 slar_jobid <- as.numeric(Sys.getenv("SLURM_ARRAY_JOB_ID"))
-# slar_jobid <- 1
 ##### LOAD FUNCTIONS
 invisible(lapply(list.files(here::here("functions/"), full.names = TRUE), source))
 ##### LOAD DATA (only data before 2021-03-01 for learning hp)

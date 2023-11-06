@@ -11,3 +11,5 @@
 *.log
 *.tex
 *.pdf
+*.err
+*.out
