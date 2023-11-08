@@ -16,6 +16,7 @@
 #' @return A dataframe with date, outcome date, forecast, outcome and current hospitalisations
 fct_iterative_forecast_from_hp <- function(data_covid,
                                            vecDates,
+                                           model = "esn",
                                            warmup = 30,
                                            forecast_days = 14,
                                            units = 500,
@@ -34,19 +35,27 @@ fct_iterative_forecast_from_hp <- function(data_covid,
                          # split train and test set
                          ls_train_test <- fct_train_test_sets(data_i)
                          
-                         # train esn on train set and predict on test set
-                         forecast_deriv <- fct_fit_esn(
-                           X = ls_train_test$X,
-                           Xtest = ls_train_test$Xtest,
-                           Y = ls_train_test$Y,
-                           units = units,
-                           warmup = warmup,
-                           lr = lr,
-                           sr = sr,
-                           ridge = ridge,
-                           input_scaling = input_scaling,
-                           seed = seed
-                         )
+                         if(model == "esn"){
+                           # train esn on train set and predict on test set
+                           forecast_deriv <- fct_fit_esn(
+                             X = ls_train_test$X,
+                             Xtest = ls_train_test$Xtest,
+                             Y = ls_train_test$Y,
+                             units = units,
+                             warmup = warmup,
+                             lr = lr,
+                             sr = sr,
+                             ridge = ridge,
+                             input_scaling = input_scaling,
+                             seed = seed
+                           )
+                         } else if(model == "enet"){
+                           forecast_deriv <- fct_fit_enet(X = ls_train_test$X,
+                                                          Xtest = ls_train_test$Xtest,
+                                                          Y = ls_train_test$Y)
+                         } else {
+                           stop("unknown model argument")
+                         }
                          # aggregate results and get last predicted value
                          dfforecast <- fct_aggregate_forecast(data_i = data_i,
                                                               forecast_deriv = forecast_deriv)

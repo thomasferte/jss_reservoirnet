@@ -15,7 +15,7 @@
 #'
 #' @import reservoirnet
 #'
-#' @return A fitted reservoir
+#' @return the reservoir forecast
 #' @export
 fct_fit_esn <- function(X,
                         Xtest,
@@ -40,11 +40,11 @@ fct_fit_esn <- function(X,
       units = as.integer(units),
       lr = lr,
       sr = sr,
-      input_scaling = input_scaling
+      input_scaling = input_scaling,
+      seed = seed
     )
   readout <- reservoirnet::createNode(nodeType = "Ridge",
-                                      ridge = ridge,
-                                      seed = seed)
+                                      ridge = ridge)
   model <- reservoirnet::link(reservoir, readout)
   ##### fit reservoir
   fit <- reservoirnet::reservoirR_fit(node = model, X = X, Y = Y, warmup = warmup)
