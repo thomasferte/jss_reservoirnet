@@ -12,6 +12,7 @@
 #' @param input_scaling The input scaling
 #' @param Xtest The test X matrix
 #' @param seed The seed determining reservoir connections
+#' @param link_source Should the input layer be directly linked to output layer (default FALSE)
 #'
 #' @import reservoirnet
 #'
@@ -21,6 +22,7 @@ fct_fit_esn <- function(X,
                         Xtest,
                         Y,
                         units = 500,
+                        link_source = FALSE,
                         warmup,
                         lr,
                         sr,
@@ -45,7 +47,12 @@ fct_fit_esn <- function(X,
     )
   readout <- reservoirnet::createNode(nodeType = "Ridge",
                                       ridge = ridge)
-  model <- reservoirnet::link(reservoir, readout)
+  if(link_source){
+    source <- createNode("Input")
+    model <- list(source %>>% reservoir, source) %>>% readout
+  } else {
+    model <- reservoirnet::link(reservoir, readout)
+  }
   ##### fit reservoir
   fit <- reservoirnet::reservoirR_fit(node = model, X = X, Y = Y, warmup = warmup)
   ##### forecast

@@ -16,6 +16,7 @@
 #' @return A dataframe with date, outcome date, forecast, outcome and current hospitalisations
 fct_iterative_forecast_from_hp <- function(data_covid,
                                            vecDates,
+                                           link_source = FALSE,
                                            model = "esn",
                                            warmup = 30,
                                            forecast_days = 14,
@@ -38,6 +39,7 @@ fct_iterative_forecast_from_hp <- function(data_covid,
                          if(model == "esn"){
                            # train esn on train set and predict on test set
                            forecast_deriv <- fct_fit_esn(
+                             link_source = link_source,
                              X = ls_train_test$X,
                              Xtest = ls_train_test$Xtest,
                              Y = ls_train_test$Y,
