@@ -14,7 +14,7 @@ warmup = 30
 units = 500
 nb_hp_set = 40
 ##### LOAD BEST HP SETS
-best_hp_set = list(common_input_scaling = "data/common_input_scaling_11374318/",
+hp_sets = list(common_input_scaling = "data/common_input_scaling_11374318/",
                    common_input_scaling_linked_source = "data/common_input_scaling_linked_source11374319/",
                    multiple_input_scaling = "data/multiple_input_scaling_11374318/",
                    multiple_input_scaling_linked_source = "data/multiple_input_scaling_linked_source11374319/") %>%
@@ -22,9 +22,11 @@ best_hp_set = list(common_input_scaling = "data/common_input_scaling_11374318/",
     list.files(path_i, full.names = TRUE) %>%
       lapply(readRDS) %>%
       bind_rows() %>%
-      tibble::rowid_to_column(var = "hp_set") %>%
-      slice_min(mean_absolute_error, n = nb_hp_set)
+      tibble::rowid_to_column(var = "hp_set")
   })
+
+best_hp_set = lapply(hp_sets,
+       function(x) x %>% slice_min(mean_absolute_error, n = nb_hp_set))
 ##### DEFINE EVALUATION SET
 vecDates <- data_covid %>%
   filter(START_DATE >= as.Date("2021-03-01") + forecast_days) %>%
@@ -145,3 +147,9 @@ dfres = bind_rows(forecast_common_is,
 fct_save_results(subDir = paste0("data/results_forecast_testset_", slar_jobid),
                  slar_taskid = slar_taskid,
                  object = dfres)
+
+if(slar_taskid == 1){
+  fct_save_results(subDir = paste0("data/results_forecast_testset_", slar_jobid),
+                   slar_taskid = "hp_sets",
+                   object = dfres)
+}
