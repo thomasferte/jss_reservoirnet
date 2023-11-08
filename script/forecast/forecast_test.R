@@ -151,5 +151,5 @@ fct_save_results(subDir = paste0("data/results_forecast_testset_", slar_jobid),
 if(slar_taskid == 1){
   fct_save_results(subDir = paste0("data/results_forecast_testset_", slar_jobid),
                    slar_taskid = "hp_sets",
-                   object = dfres)
+                   object = hp_sets)
 }
