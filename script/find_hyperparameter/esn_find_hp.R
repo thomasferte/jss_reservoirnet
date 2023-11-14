@@ -4,7 +4,8 @@ library(reservoirnet)
 ##### SLAR VARIABLES
 slar_taskid <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_ID"))
 slar_jobid <- as.numeric(Sys.getenv("SLURM_ARRAY_JOB_ID"))
-slar_job_name <- as.numeric(Sys.getenv("SLURM_JOB_NAME"))
+slar_job_name <- Sys.getenv("SLURM_JOB_NAME")
+slar_task_max <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_MAX"))
 ##### LOAD FUNCTIONS
 invisible(lapply(list.files(here::here("functions/"), full.names = TRUE), source))
 ##### LOAD DATA (only data before 2021-03-01 for learning hp)
@@ -18,7 +19,7 @@ link_source <- regexpr(pattern = "FALSE|TRUE", slar_job_name) %>%
   regmatches(slar_job_name, .) %>%
   as.logical()
 if(is.na(nb_iter)) stop("nb_iter cannot be extracted from slar_job_name")
-n_samples = 20
+n_samples = 2000/slar_task_max
 ########################## MULTIPLE INPUT SCALING ##########################
 ##### SAMPLE HYPERPARAMETERS
 ## generate hp sampling function for reservoir hp
@@ -69,7 +70,8 @@ dfres <- lapply(seq_len(n_samples),
                   res <- dfHyperparam[id_sample,] %>%
                     dplyr::mutate(mean_absolute_error = mean_absolute_error,
                                   time = difftime(time_end, time_start, units = "secs") %>% as.numeric(),
-                                  link_source = link_source)
+                                  link_source = link_source,
+                                  nb_iter = nb_iter)
                   return(res)
                 }) %>%
   bind_rows()
@@ -108,7 +110,8 @@ dfres <- lapply(seq_len(n_samples),
                   res <- dfHyperparam[id_sample,] %>%
                     dplyr::mutate(mean_absolute_error = mean_absolute_error,
                                   time = difftime(time_end, time_start, units = "secs") %>% as.numeric(),
-                                  link_source = link_source)
+                                  link_source = link_source,
+                                  nb_iter = nb_iter)
                   return(res)
                 }) %>%
   bind_rows()
