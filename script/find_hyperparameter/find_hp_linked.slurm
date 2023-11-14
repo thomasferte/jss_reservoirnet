@@ -4,7 +4,7 @@
 # les directives Slurm vont ici:
 
 # Your job name (displayed by the queue)
-#SBATCH -J JSSCOVIDLS
+#SBATCH -J JSSCOVIDiter20linkTRUE
 
 # walltime (hh:mm::ss)
 #SBATCH -t 00:40:00
@@ -14,8 +14,8 @@
 # SBATCH --chdir=.
 
 ### In filenames, %j=jobid, %a=index in job array
-#SBATCH -o data/JSSCOVIDLS_%j_%a.out # standard out goes to this file
-#SBATCH -e data/JSSCOVIDLS_%j_%a.err # standard err goes to this file
+#SBATCH -o data/JSSCOVID_%j_%a.out # standard out goes to this file
+#SBATCH -e data/JSSCOVID_%j_%a.err # standard err goes to this file
 
 #SBATCH --array=1-100
 
@@ -37,5 +37,4 @@ echo "#############################"
 
 module load R/4.2.0
 
-Rscript script/find_hyperparameter/esn_common_input_scaling_linked_source.R
-Rscript script/find_hyperparameter/esn_multiple_input_scaling_linked_source.R
+Rscript script/find_hyperparameter/esn_find_hp.R

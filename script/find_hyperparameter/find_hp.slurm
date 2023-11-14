@@ -4,7 +4,7 @@
 # les directives Slurm vont ici:
 
 # Your job name (displayed by the queue)
-#SBATCH -J JSSCOVID
+#SBATCH -J JSSCOVIDiter20linkFALSE
 
 # walltime (hh:mm::ss)
 #SBATCH -t 00:40:00
@@ -37,5 +37,4 @@ echo "#############################"
 
 module load R/4.2.0
 
-Rscript script/find_hyperparameter/esn_common_input_scaling.R
-Rscript script/find_hyperparameter/esn_multiple_input_scaling.R
+Rscript script/find_hyperparameter/esn_find_hp.R

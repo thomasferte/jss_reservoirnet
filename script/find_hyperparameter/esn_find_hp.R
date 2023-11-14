@@ -10,9 +10,15 @@ invisible(lapply(list.files(here::here("functions/"), full.names = TRUE), source
 ##### LOAD DATA (only data before 2021-03-01 for learning hp)
 lsdataDates <- fct_load_data_find_hp()
 ##### META PARAMETERS
-nb_iter = as.numeric(gsub(pattern = ".*iter", replacement = "", x = "JSSCOVIDLSiter20"))
+strsplit(slar_job_name, split = c("iter", "link"))
+nb_iter <- regexpr("\\d+", slar_job_name) %>%
+  regmatches(slar_job_name, .) %>%
+  as.numeric()
+link_source <- regexpr(pattern = "FALSE|TRUE", slar_job_name) %>%
+  regmatches(slar_job_name, .) %>%
+  as.logical()
+if(is.na(nb_iter)) stop("nb_iter cannot be extracted from slar_job_name")
 n_samples = 20
-
 ########################## MULTIPLE INPUT SCALING ##########################
 ##### SAMPLE HYPERPARAMETERS
 ## generate hp sampling function for reservoir hp
@@ -56,12 +62,14 @@ dfres <- lapply(seq_len(n_samples),
                                                        sr = dfHyperparam$spectral_radius[id_sample],
                                                        ridge = dfHyperparam$ridge[id_sample],
                                                        input_scaling = df_fct_is[id_sample,],
+                                                       link_source = link_source,
                                                        nb_iter = nb_iter,
                                                        seed = dfHyperparam$seed[id_sample])
                   time_end <- Sys.time()
                   res <- dfHyperparam[id_sample,] %>%
                     dplyr::mutate(mean_absolute_error = mean_absolute_error,
-                                  time = difftime(time_end, time_start, units = "secs") %>% as.numeric())
+                                  time = difftime(time_end, time_start, units = "secs") %>% as.numeric(),
+                                  link_source = link_source)
                   return(res)
                 }) %>%
   bind_rows()
@@ -99,7 +107,8 @@ dfres <- lapply(seq_len(n_samples),
                   time_end <- Sys.time()
                   res <- dfHyperparam[id_sample,] %>%
                     dplyr::mutate(mean_absolute_error = mean_absolute_error,
-                                  time = difftime(time_end, time_start, units = "secs") %>% as.numeric())
+                                  time = difftime(time_end, time_start, units = "secs") %>% as.numeric(),
+                                  link_source = link_source)
                   return(res)
                 }) %>%
   bind_rows()
