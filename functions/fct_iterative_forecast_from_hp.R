@@ -12,6 +12,9 @@
 #' @param ridge The ridge penalty
 #' @param input_scaling The input scaling
 #' @param seed The seed setting the reservoir connection
+#' @param link_source Should the input be linked to the target
+#' @param model esn or enet
+#' @param nb_iter Number of replication of the model
 #'
 #' @return A dataframe with date, outcome date, forecast, outcome and current hospitalisations
 fct_iterative_forecast_from_hp <- function(data_covid,
@@ -25,7 +28,8 @@ fct_iterative_forecast_from_hp <- function(data_covid,
                                            sr = 1,
                                            ridge = 1e2,
                                            input_scaling = 1,
-                                           seed = 1){
+                                           seed = 1,
+                                           nb_iter = 1){
   # iterate over each date in vecDates to train and forecast with a reservoir
   dfforecast <- lapply(vecDates,
                        function(date_i){
@@ -36,31 +40,42 @@ fct_iterative_forecast_from_hp <- function(data_covid,
                          # split train and test set
                          ls_train_test <- fct_train_test_sets(data_i)
                          
-                         if(model == "esn"){
-                           # train esn on train set and predict on test set
-                           forecast_deriv <- fct_fit_esn(
-                             link_source = link_source,
-                             X = ls_train_test$X,
-                             Xtest = ls_train_test$Xtest,
-                             Y = ls_train_test$Y,
-                             units = units,
-                             warmup = warmup,
-                             lr = lr,
-                             sr = sr,
-                             ridge = ridge,
-                             input_scaling = input_scaling,
-                             seed = seed
-                           )
-                         } else if(model == "enet"){
-                           forecast_deriv <- fct_fit_enet(X = ls_train_test$X,
-                                                          Xtest = ls_train_test$Xtest,
-                                                          Y = ls_train_test$Y)
-                         } else {
-                           stop("unknown model argument")
-                         }
-                         # aggregate results and get last predicted value
-                         dfforecast <- fct_aggregate_forecast(data_i = data_i,
-                                                              forecast_deriv = forecast_deriv)
+                         # iterate over nb_iter models
+                         dfforecast <- lapply(seq_len(nb_iter),
+                                              FUN = function(iter_i){
+                                                if(model == "esn"){
+                                                  seed <- ifelse(nb_iter > 1,
+                                                                 yes = round(runif(n = 1,
+                                                                                   min = 1,
+                                                                                   max = 1e5)),
+                                                                 no = seed)
+                                                  # train esn on train set and predict on test set
+                                                  forecast_deriv <- fct_fit_esn(
+                                                    link_source = link_source,
+                                                    X = ls_train_test$X,
+                                                    Xtest = ls_train_test$Xtest,
+                                                    Y = ls_train_test$Y,
+                                                    units = units,
+                                                    warmup = warmup,
+                                                    lr = lr,
+                                                    sr = sr,
+                                                    ridge = ridge,
+                                                    input_scaling = input_scaling,
+                                                    seed = seed
+                                                  )
+                                                } else if(model == "enet"){
+                                                  forecast_deriv <- fct_fit_enet(X = ls_train_test$X,
+                                                                                 Xtest = ls_train_test$Xtest,
+                                                                                 Y = ls_train_test$Y)
+                                                } else {
+                                                  stop("unknown model argument")
+                                                }
+                                                # aggregate results and get last predicted value
+                                                dfforecast <- fct_aggregate_forecast(data_i = data_i,
+                                                                                     forecast_deriv = forecast_deriv)
+                                              }) %>%
+                           bind_rows(.id = "iter")
+                         
                          return(dfforecast)
                        }) %>%
     bind_rows() %>%
