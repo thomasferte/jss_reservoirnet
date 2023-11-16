@@ -14,10 +14,10 @@ warmup = 30
 units = 500
 nb_hp_set = 40
 ##### LOAD BEST HP SETS
-hp_sets = list(common_input_scaling = "data/common_input_scaling_11374318/",
-                   common_input_scaling_linked_source = "data/common_input_scaling_linked_source11374319/",
-                   multiple_input_scaling = "data/multiple_input_scaling_11374318/",
-                   multiple_input_scaling_linked_source = "data/multiple_input_scaling_linked_source11374319/") %>%
+hp_sets = list(common_input_scaling = "data/common_input_scaling_11423760/",
+               common_input_scaling_linked_source = "data/common_input_scaling_11426140/",
+               multiple_input_scaling = "data/multiple_input_scaling_11423760/",
+               multiple_input_scaling_linked_source = "data/multiple_input_scaling_11426140/") %>%
   lapply(function(path_i){
     list.files(path_i, full.names = TRUE) %>%
       lapply(readRDS) %>%
@@ -26,7 +26,7 @@ hp_sets = list(common_input_scaling = "data/common_input_scaling_11374318/",
   })
 
 best_hp_set = lapply(hp_sets,
-       function(x) x %>% slice_min(mean_absolute_error, n = nb_hp_set))
+                     function(x) x %>% slice_min(mean_absolute_error, n = nb_hp_set))
 ##### DEFINE EVALUATION SET
 vecDates <- data_covid %>%
   filter(START_DATE >= as.Date("2021-03-01") + forecast_days) %>%
@@ -48,7 +48,10 @@ forecast_common_is <- lapply(X = 1:nrow(best_hp_set$common_input_scaling),
                                                               sr = as.numeric(row[["spectral_radius"]]),
                                                               ridge = as.numeric(row[["ridge"]]),
                                                               input_scaling = as.numeric(row[["input_scaling"]]),
-                                                              seed = as.integer(row[["seed"]])) %>%
+                                                              seed = as.integer(row[["seed"]]),
+                                                              link_source = as.logical(row[["link_source"]]),
+                                                              model = "esn",
+                                                              nb_iter = 1) %>%
                                  mutate(hp_set = row[["hp_set"]])
                              }) %>%
   bind_rows() %>%
@@ -67,7 +70,10 @@ forecast_common_is_linked_source <- lapply(X = 1:nrow(best_hp_set$common_input_s
                                                                             sr = as.numeric(row[["spectral_radius"]]),
                                                                             ridge = as.numeric(row[["ridge"]]),
                                                                             input_scaling = as.numeric(row[["input_scaling"]]),
-                                                                            seed = as.integer(row[["seed"]])) %>%
+                                                                            seed = as.integer(row[["seed"]]),
+                                                                            link_source = as.logical(row[["link_source"]]),
+                                                                            model = "esn",
+                                                                            nb_iter = 1) %>%
                                                mutate(hp_set = row[["hp_set"]])
                                            }) %>%
   bind_rows() %>%
@@ -95,7 +101,10 @@ forecast_multiple_is <- lapply(X = 1:nrow(best_hp_set$multiple_input_scaling),
                                                                 sr = as.numeric(row[["spectral_radius"]]),
                                                                 ridge = as.numeric(row[["ridge"]]),
                                                                 input_scaling = input_scaling,
-                                                                seed = as.integer(row[["seed"]])) %>%
+                                                                seed = as.integer(row[["seed"]]),
+                                                                link_source = as.logical(row[["link_source"]]),
+                                                                model = "esn",
+                                                                nb_iter = 1) %>%
                                    mutate(hp_set = row[["hp_set"]])
                                }) %>%
   bind_rows() %>%
@@ -123,7 +132,10 @@ forecast_multiple_is_linked_source <- lapply(X = 1:nrow(best_hp_set$multiple_inp
                                                                               sr = as.numeric(row[["spectral_radius"]]),
                                                                               ridge = as.numeric(row[["ridge"]]),
                                                                               input_scaling = input_scaling,
-                                                                              seed = as.integer(row[["seed"]])) %>%
+                                                                              seed = as.integer(row[["seed"]]),
+                                                                              link_source = as.logical(row[["link_source"]]),
+                                                                              model = "esn",
+                                                                              nb_iter = 1) %>%
                                                  mutate(hp_set = row[["hp_set"]])
                                              }) %>%
   bind_rows() %>%
