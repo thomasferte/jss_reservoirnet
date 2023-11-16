@@ -12,7 +12,8 @@ data_covid <- readRDS(file = "data/df_obfuscated_epidemio.rds")
 forecast_days = 14
 warmup = 30
 units = 500
-nb_hp_set = 40
+nb_hp_set = 1
+nb_iter = 40
 ##### LOAD BEST HP SETS
 hp_sets = list(common_input_scaling = "data/common_input_scaling_11423760/",
                common_input_scaling_linked_source = "data/common_input_scaling_11426140/",
@@ -51,7 +52,7 @@ forecast_common_is <- lapply(X = 1:nrow(best_hp_set$common_input_scaling),
                                                               seed = as.integer(row[["seed"]]),
                                                               link_source = as.logical(row[["link_source"]]),
                                                               model = "esn",
-                                                              nb_iter = 1) %>%
+                                                              nb_iter = nb_iter) %>%
                                  mutate(hp_set = row[["hp_set"]])
                              }) %>%
   bind_rows() %>%
@@ -73,7 +74,7 @@ forecast_common_is_linked_source <- lapply(X = 1:nrow(best_hp_set$common_input_s
                                                                             seed = as.integer(row[["seed"]]),
                                                                             link_source = as.logical(row[["link_source"]]),
                                                                             model = "esn",
-                                                                            nb_iter = 1) %>%
+                                                                            nb_iter = nb_iter) %>%
                                                mutate(hp_set = row[["hp_set"]])
                                            }) %>%
   bind_rows() %>%
@@ -104,7 +105,7 @@ forecast_multiple_is <- lapply(X = 1:nrow(best_hp_set$multiple_input_scaling),
                                                                 seed = as.integer(row[["seed"]]),
                                                                 link_source = as.logical(row[["link_source"]]),
                                                                 model = "esn",
-                                                                nb_iter = 1) %>%
+                                                                nb_iter = nb_iter) %>%
                                    mutate(hp_set = row[["hp_set"]])
                                }) %>%
   bind_rows() %>%
@@ -135,7 +136,7 @@ forecast_multiple_is_linked_source <- lapply(X = 1:nrow(best_hp_set$multiple_inp
                                                                               seed = as.integer(row[["seed"]]),
                                                                               link_source = as.logical(row[["link_source"]]),
                                                                               model = "esn",
-                                                                              nb_iter = 1) %>%
+                                                                              nb_iter = nb_iter) %>%
                                                  mutate(hp_set = row[["hp_set"]])
                                              }) %>%
   bind_rows() %>%
