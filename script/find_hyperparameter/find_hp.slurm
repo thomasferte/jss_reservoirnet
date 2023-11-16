@@ -7,7 +7,7 @@
 #SBATCH -J JSSCOVIDiter20linkFALSE
 
 # walltime (hh:mm::ss)
-#SBATCH -t 05:00:00
+#SBATCH -t 03:00:00
 
 
 # change working directory
@@ -17,7 +17,7 @@
 #SBATCH -o data/JSSCOVIDiter20linkFALSE_%j_%a.out # standard out goes to this file
 #SBATCH -e data/JSSCOVIDiter20linkFALSE_%j_%a.err # standard err goes to this file
 
-#SBATCH --array=1-200
+#SBATCH --array=1-400
 
 # fin des directives PBS
 #############################

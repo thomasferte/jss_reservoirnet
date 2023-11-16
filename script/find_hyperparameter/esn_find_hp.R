@@ -1,3 +1,5 @@
+timestart = Sys.time()
+print(timestart)
 ##### LOAD PACKAGES
 library(dplyr)
 library(reservoirnet)
@@ -11,7 +13,6 @@ invisible(lapply(list.files(here::here("functions/"), full.names = TRUE), source
 ##### LOAD DATA (only data before 2021-03-01 for learning hp)
 lsdataDates <- fct_load_data_find_hp()
 ##### META PARAMETERS
-strsplit(slar_job_name, split = c("iter", "link"))
 nb_iter <- regexpr("\\d+", slar_job_name) %>%
   regmatches(slar_job_name, .) %>%
   as.numeric()
@@ -53,6 +54,7 @@ dfHyperparam <- cbind(df_fct_hp, df_fct_is)
 ##### COMPUTE MEAN ABSOLUTE ERROR
 dfres <- lapply(seq_len(n_samples),
                 function(id_sample){
+                  print(paste0("---------------- id_sample : ", id_sample))
                   time_start <- Sys.time()
                   mean_absolute_error <- fct_objective(lsdataDates$data_covid,
                                                        lsdataDates$vecDates,
@@ -94,6 +96,7 @@ dfHyperparam <- reservoirnet::random_search_hyperparam(n = n_samples,
 ##### COMPUTE MEAN ABSOLUTE ERROR
 dfres <- lapply(seq_len(n_samples),
                 function(id_sample){
+                  print(paste0("----------------- id_sample : ", id_sample))
                   time_start <- Sys.time()
                   mean_absolute_error <- fct_objective(data_covid = lsdataDates$data_covid,
                                                        vecDates = lsdataDates$vecDates,
@@ -120,3 +123,8 @@ dfres <- lapply(seq_len(n_samples),
 fct_save_results(subDir = paste0("data/common_input_scaling_", slar_jobid),
                  slar_taskid = slar_taskid,
                  object = dfres)
+
+timeend = Sys.time()
+print(timeend)
+print(timestart, timeend, units = "hour")
+
