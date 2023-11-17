@@ -18,7 +18,8 @@ nb_iter = 40
 hp_sets = list(common_input_scaling = "data/common_input_scaling_11423760/",
                common_input_scaling_linked_source = "data/common_input_scaling_11426140/",
                multiple_input_scaling = "data/multiple_input_scaling_11423760/",
-               multiple_input_scaling_linked_source = "data/multiple_input_scaling_11426140/") %>%
+               multiple_input_scaling_linked_source = "data/multiple_input_scaling_11426140/",
+               enet = "data/enet_1/") %>%
   lapply(function(path_i){
     list.files(path_i, full.names = TRUE) %>%
       lapply(readRDS) %>%
@@ -143,11 +144,21 @@ forecast_multiple_is_linked_source <- lapply(X = 1:nrow(best_hp_set$multiple_inp
   mutate(model = "esn_multiple_is_linked_source")
 ##### ELASTIC-NET
 message("--------- ELASTIC-NET ----------")
-forecast_enet <- fct_iterative_forecast_from_hp(data_covid = data_covid,
+forecast_enet_once <- fct_iterative_forecast_from_hp(data_covid = data_covid,
+                                                vecDates = date_i,
+                                                forecast_days = forecast_days,
+                                                lambda = best_hp_set$enet$lambda,
+                                                alpha = best_hp_set$enet$alpha,
+                                                model = "enet") %>%
+  mutate(model = "enet_hp_on_train_set",
+         hp_set = 1)
+
+message("--------- ELASTIC-NET (daily hp update) ----------")
+forecast_enet_daily <- fct_iterative_forecast_from_hp(data_covid = data_covid,
                                                 vecDates = date_i,
                                                 forecast_days = forecast_days,
                                                 model = "enet") %>%
-  mutate(model = "enet",
+  mutate(model = "enet_daily_hp_update",
          hp_set = 1)
 ##### SAVE
 message("--------- SAVE ----------")
@@ -155,7 +166,8 @@ dfres = bind_rows(forecast_common_is,
                   forecast_common_is_linked_source,
                   forecast_multiple_is,
                   forecast_multiple_is_linked_source,
-                  forecast_enet)
+                  forecast_enet_once,
+                  forecast_enet_daily)
 
 fct_save_results(subDir = paste0("data/results_forecast_testset_", slar_jobid),
                  slar_taskid = slar_taskid,

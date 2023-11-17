@@ -15,6 +15,8 @@
 #' @param link_source Should the input be linked to the target
 #' @param model esn or enet
 #' @param nb_iter Number of replication of the model
+#' @param lambda The lambda elastic-net (use cv.glmnet if not supplied)
+#' @param alpha The alpha parameter of elastic-net
 #'
 #' @return A dataframe with date, outcome date, forecast, outcome and current hospitalisations
 fct_iterative_forecast_from_hp <- function(data_covid,
@@ -29,7 +31,9 @@ fct_iterative_forecast_from_hp <- function(data_covid,
                                            ridge = 1e2,
                                            input_scaling = 1,
                                            seed = 1,
-                                           nb_iter = 1){
+                                           nb_iter = 1,
+                                           lambda = NULL,
+                                           alpha = 0.5){
   # iterate over each date in vecDates to train and forecast with a reservoir
   dfforecast <- lapply(vecDates,
                        function(date_i){
@@ -49,6 +53,7 @@ fct_iterative_forecast_from_hp <- function(data_covid,
                                                                                    min = 1,
                                                                                    max = 1e5)),
                                                                  no = seed)
+                                                  print(seed)
                                                   # train esn on train set and predict on test set
                                                   forecast_deriv <- fct_fit_esn(
                                                     link_source = link_source,
@@ -66,7 +71,9 @@ fct_iterative_forecast_from_hp <- function(data_covid,
                                                 } else if(model == "enet"){
                                                   forecast_deriv <- fct_fit_enet(X = ls_train_test$X,
                                                                                  Xtest = ls_train_test$Xtest,
-                                                                                 Y = ls_train_test$Y)
+                                                                                 Y = ls_train_test$Y,
+                                                                                 lambda = lambda,
+                                                                                 alpha = alpha)
                                                 } else {
                                                   stop("unknown model argument")
                                                 }

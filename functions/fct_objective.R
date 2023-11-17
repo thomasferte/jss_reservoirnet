@@ -15,6 +15,8 @@
 #' @param link_source Should the input be linked to the target
 #' @param model esn or enet
 #' @param nb_iter Number of replication of the model
+#' @param lambda The lambda elastic-net (use cv.glmnet if not supplied)
+#' @param alpha The alpha parameter of elastic-net
 #'
 #' @return The mean absolute error
 fct_objective <- function(data_covid,
@@ -29,7 +31,9 @@ fct_objective <- function(data_covid,
                           ridge = 1e2,
                           input_scaling = 1,
                           seed = 1,
-                          nb_iter = 1){
+                          nb_iter = 1,
+                          lambda = NULL,
+                          alpha = 0.5){
   # iterate over each date in vecDates to train and forecast with a reservoir
   fct_iterative_forecast_from_hp(data_covid = data_covid,
                                  vecDates = vecDates,
@@ -43,7 +47,9 @@ fct_objective <- function(data_covid,
                                  ridge = ridge,
                                  input_scaling = input_scaling,
                                  seed = seed,
-                                 nb_iter = nb_iter) %>%
+                                 nb_iter = nb_iter,
+                                 lambda = lambda,
+                                 alpha = alpha) %>%
     # take the median forecast if several forecast (nb_iter > 1)
     group_by(START_DATE, outcomeDate, outcome, hosp) %>%
     summarise(forecast = median(forecast), .groups = "drop") %>%

@@ -1,7 +1,7 @@
 library(dplyr)
 library(ggplot2)
 
-ls_files_results <- list.files("data/results_forecast_testset_11463695//", full.names = TRUE)
+ls_files_results <- list.files("data/results_forecast_testset_11463695/", full.names = TRUE)
 ls_files_results_res <- grep(ls_files_results, pattern = "hp_sets", value = TRUE, invert = TRUE)
 hp_file <- grep(ls_files_results, pattern = "hp_sets", value = TRUE)
 
@@ -133,7 +133,9 @@ model_forecast_labels <- c(
 )
 
 df_forecast <- lapply(ls_files_results_res, readRDS) %>%
-  dplyr::bind_rows() %>%
+  dplyr::bind_rows()
+
+df_forecast_aggregated <- df_forecast %>%
   group_by(START_DATE, outcomeDate, model) %>%
   summarise(outcome = unique(outcome),
             forecast = median(forecast),
@@ -143,7 +145,7 @@ df_forecast <- lapply(ls_files_results_res, readRDS) %>%
                                levels = names(model_forecast_labels),
                                labels = model_forecast_labels))
 
-table_perf_esn <- df_forecast %>%
+table_perf_esn <- df_forecast_aggregated %>%
   dplyr::mutate(absolute_error = abs(forecast - outcome),
                 relative_error = absolute_error/outcome,
                 baseline_absolute_error = abs(hosp - outcome),
@@ -156,7 +158,7 @@ table_perf_esn <- df_forecast %>%
             mre_baseline = median(absolute_error_relative_baseline, na.rm = TRUE),
             .groups = "drop")
 
-plot_forecast <- df_forecast %>%
+plot_forecast <- df_forecast_aggregated %>%
   tidyr::pivot_longer(cols = c(outcome, forecast, hosp)) %>%
   mutate(name = factor(name,
                        levels = c("outcome",
@@ -175,3 +177,66 @@ plot_forecast <- df_forecast %>%
   labs(x = "Date (month-year)",
        y = "Hospitalizations",
        color = "")
+
+##### aggregation forecast plots
+nb_aggregation <- c(1, 5, 10, 20, 30, 40)
+nb_boot <- 250
+
+df_aggregation_forecast <- parallel::mclapply(seq_len(nb_boot),
+                                              mc.cores = parallel::detectCores()-2, 
+                                              function(boot_i){
+                                                lapply(nb_aggregation,
+                                                       function(nb_aggregation_i){
+                                                         df_forecast %>%
+                                                           filter(model != "enet") %>%
+                                                           select(model, iter) %>%
+                                                           distinct() %>%
+                                                           group_by(model) %>%
+                                                           sample_n(nb_aggregation_i, replace = TRUE) %>%
+                                                           left_join(df_forecast,
+                                                                     by = c("model", "iter"),
+                                                                     relationship = "many-to-many") %>%
+                                                           group_by(START_DATE, outcomeDate, model) %>%
+                                                           summarise(outcome = unique(outcome),
+                                                                     forecast = median(forecast),
+                                                                     hosp = unique(hosp),
+                                                                     .groups = "drop") %>%
+                                                           dplyr::mutate(model = factor(model,
+                                                                                        levels = names(model_forecast_labels),
+                                                                                        labels = model_forecast_labels)) %>%
+                                                           dplyr::mutate(absolute_error = abs(forecast - outcome),
+                                                                         relative_error = absolute_error/outcome,
+                                                                         baseline_absolute_error = abs(hosp - outcome),
+                                                                         absolute_error_delta_baseline = absolute_error - baseline_absolute_error,
+                                                                         absolute_error_relative_baseline = absolute_error/baseline_absolute_error) %>%
+                                                           group_by(model) %>%
+                                                           summarise(mae = mean(absolute_error),
+                                                                     mre = median(relative_error, na.rm = TRUE),
+                                                                     mae_baseline = mean(absolute_error_delta_baseline),
+                                                                     mre_baseline = median(absolute_error_relative_baseline, na.rm = TRUE),
+                                                                     .groups = "drop") %>%
+                                                           mutate(nb_aggregation = nb_aggregation_i)
+                                                       }) %>%
+                                                  bind_rows() %>%
+                                                  mutate(boot_i = boot_i)
+                                              }) %>%
+  bind_rows()
+
+df_aggregation_forecast %>%
+  group_by(model, nb_aggregation) %>%
+  summarise(mae_mean = mean(mae),
+            mae_inf = quantile(mae, 0.025),
+            mae_sup = quantile(mae, 0.975)) %>%
+  ggplot(mapping = aes(x = nb_aggregation,
+                       y = mae_mean,
+                       ymin = mae_inf,
+                       ymax = mae_sup,
+                       group = model)) +
+  geom_ribbon() +
+  facet_wrap(model ~ .) +
+  lims(y = c(0,50))
+
+df_forecast %>%
+  ggplot(mapping = aes(x = outcomeDate, y = forecast)) +
+  geom_point() +
+  facet_wrap(model ~ ., scales = "free")
