@@ -39,6 +39,7 @@ message(paste0("--------- evaluation date : ", date_i, " ----------"))
 ##### FORECAST
 dfres <- lapply(names(best_hp_set),
        function(model_set){
+         print(model_set)
          hp_set <- best_hp_set[[model_set]]
          if(model_set == "enet"){
            ##### ELASTIC-NET
@@ -58,12 +59,17 @@ dfres <- lapply(names(best_hp_set),
                     hp_set = 1)
            
            res <- bind_rows(forecast_enet_once, forecast_enet_daily)
-         } else {
+         }
+         
+         if(model_set %in% c("common_input_scaling",
+                             "common_input_scaling_linked_source",
+                             "multiple_input_scaling",
+                             "multiple_input_scaling_linked_source")){
            ##### RESERVOIR
            if(model_set %in% c("common_input_scaling", "common_input_scaling_linked_source")){
              input_scaling <- hp_set$input_scaling
-           } else if(model_set %in% c("multiple_input_scaling", "common_input_scaling_linked_source")){
-             input_scaling = row %>%
+           } else if(model_set %in% c("multiple_input_scaling", "multiple_input_scaling_linked_source")){
+             input_scaling = hp_set %>%
                dplyr::select(-c("hp_set",
                                 "ridge",
                                 "leaking_rate",
@@ -81,13 +87,13 @@ dfres <- lapply(names(best_hp_set),
                                                  sr = hp_set$spectral_radius,
                                                  ridge = hp_set$ridge,
                                                  input_scaling = input_scaling,
-                                                 seed = hp_set$seed,
                                                  link_source = hp_set$link_source,
                                                  model = "esn",
                                                  nb_iter = nb_iter) %>%
-             mutate(hp_set = row[["hp_set"]],
+             mutate(hp_set = hp_set$hp_set,
                     model = model_set)
-         } 
+         }
+         return(res)
        }) %>%
   bind_rows()
 
