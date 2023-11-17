@@ -1,11 +1,19 @@
+##### load packages and functions
 library(dplyr)
 library(ggplot2)
 
-ls_files_results <- list.files("data/results_forecast_testset_11463695/", full.names = TRUE)
+source("functions/fct_smoothing_derivative.R")
+
+##### load data
+ls_files_results <- list.files("data/results_forecast_testset_11495493/", full.names = TRUE)
 ls_files_results_res <- grep(ls_files_results, pattern = "hp_sets", value = TRUE, invert = TRUE)
 hp_file <- grep(ls_files_results, pattern = "hp_sets", value = TRUE)
+df_obfuscated_epidemio <- readRDS("data/df_obfuscated_epidemio.rds")
 
-##### hyperparameters plots
+##### labels and features
+hp_features_enet <- c("lambda",
+                      "alpha")
+
 hp_features_reservoir <- c("input_scaling",
                            "spectral_radius",
                            "leaking_rate",
@@ -28,6 +36,8 @@ hp_features <- c("hosp",
                  "Vaccin_1dose_rolDeriv7")
 
 feature_labels <- conservation_status <- c(
+  "outcome" = "Outcome",
+  "outcomeDeriv" = "Outcome variation",
   "input_scaling" = "Input scaling",
   "leaking_rate" = "Leaking rate",
   "ridge" = "Ridge",
@@ -54,9 +64,33 @@ model_labels <- c(
   "common_input_scaling" = "Common IS \n\n R %>>% output",
   "common_input_scaling_linked_source" = "Common IS \n\n input + R %>>% output",
   "multiple_input_scaling" = "Multiple IS \n\n R %>>% output",
-  "multiple_input_scaling_linked_source" = "Multiple IS \n\n input + R %>>% output"
+  "multiple_input_scaling_linked_source" = "Multiple IS \n\n input + R %>>% output",
+  "enet" = "Elastic-net",
+  "enet_hp_on_train_set" = "Elastic-net",
+  "enet_daily_hp_update" = "Elastic-net (alpha = 0.5, lambda = daily updated)"
 )
 
+##### present data
+data_i <- fct_smoothing_derivative(data = df_obfuscated_epidemio,
+                                   maxOutcomeDate = df_obfuscated_epidemio$START_DATE %>% max,
+                                   forecast_days = 14)
+
+plot_present_data <- data_i %>%
+  select(-START_DATE) %>%
+  tidyr::pivot_longer(cols = -"outcomeDate") %>%
+  mutate(name = factor(name, levels = names(feature_labels), labels = feature_labels)) %>%
+  ggplot(mapping = aes(x = outcomeDate, y = value, color = name)) +
+  geom_line() +
+  geom_vline(xintercept = as.Date("2021-03-01"), linetype = 2) +
+  scale_color_manual(values = c(rep("#FB8500",2), rep("#023047", 16))) +
+  facet_wrap(name ~ ., scales = "free",
+             ncol = 2) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(x = "Date",
+       y = "Value")
+
+##### hyperparameters plots
 df_hp <- readRDS(hp_file) %>%
   bind_rows(.id = "model") %>%
   group_by(model) %>%
@@ -73,11 +107,33 @@ df_hp <- readRDS(hp_file) %>%
                          "rank_perf_color",
                          "model",
                          hp_features_reservoir,
-                         hp_features))) %>%
-  tidyr::pivot_longer(cols = all_of(c(hp_features_reservoir, hp_features)), 
+                         hp_features,
+                         hp_features_enet))) %>%
+  tidyr::pivot_longer(cols = all_of(c(hp_features_reservoir, hp_features, hp_features_enet)), 
                       values_to = "HP_value", names_to = "HP") %>%
   na.omit() %>%
   filter(mean_absolute_error < 30)
+
+plot_enet_hp <- df_hp %>%
+  filter(HP %in% hp_features_enet) %>%
+  ggplot(mapping = aes(x = HP_value, 
+                       y = mean_absolute_error,
+                       color = rank_perf_color)) +
+  geom_point() +
+  facet_grid(model ~ HP, scales = "free_x",
+             labeller = labeller(model = model_labels)) +
+  scale_x_log10(labels = scales::trans_format("log10", scales::label_math(10^.x)),
+                breaks = 10^seq(-10, 10, 1),
+                minor_breaks = 10^(seq(-10, 5))) +
+  scale_color_manual(values = c("blue", "#E76F51", "#E9C46A", "#2A9D8F")) +
+  lims(y = c(15, 30)) +
+  theme_minimal() + 
+  theme(strip.text.y = element_text(angle = 0),
+        strip.text.x = element_text(angle = 90)) +
+  theme(legend.position = "bottom") +
+  labs(x = "Hyperparameter value", 
+       y = "Mean absolute error",
+       color = "") 
 
 plot_reservoir_hp <- df_hp %>%
   filter(HP %in% hp_features_reservoir) %>%
@@ -124,14 +180,6 @@ plot_feature_input_scaling <- df_hp %>%
        color = "")
 
 ##### forecast plots
-model_forecast_labels <- c(
-  "esn_common_is" =   "Common IS \n\n R %>>% output",
-  "esn_common_is_linked_source" =   "Common IS \n\n input + R %>>% output",
-  "esn_multiple_is" =   "Multiple IS \n\n R %>>% output",
-  "esn_multiple_is_linked_source" =   "Multiple IS \n\n input + R %>>% output",
-  "enet" = "Elastic-net"
-)
-
 df_forecast <- lapply(ls_files_results_res, readRDS) %>%
   dplyr::bind_rows()
 
@@ -142,8 +190,8 @@ df_forecast_aggregated <- df_forecast %>%
             hosp = unique(hosp),
             .groups = "drop") %>%
   dplyr::mutate(model = factor(model,
-                               levels = names(model_forecast_labels),
-                               labels = model_forecast_labels))
+                               levels = names(model_labels),
+                               labels = model_labels))
 
 table_perf_esn <- df_forecast_aggregated %>%
   dplyr::mutate(absolute_error = abs(forecast - outcome),
@@ -179,7 +227,7 @@ plot_forecast <- df_forecast_aggregated %>%
        color = "")
 
 ##### aggregation forecast plots
-nb_aggregation <- c(1, 5, 10, 20, 30, 40)
+nb_aggregation <- c(1, 5, 10, 15, 20, 30, 40)
 nb_boot <- 250
 
 df_aggregation_forecast <- parallel::mclapply(seq_len(nb_boot),
@@ -188,7 +236,7 @@ df_aggregation_forecast <- parallel::mclapply(seq_len(nb_boot),
                                                 lapply(nb_aggregation,
                                                        function(nb_aggregation_i){
                                                          df_forecast %>%
-                                                           filter(model != "enet") %>%
+                                                           filter(!grepl(x = model, pattern = "enet")) %>%
                                                            select(model, iter) %>%
                                                            distinct() %>%
                                                            group_by(model) %>%
@@ -202,8 +250,8 @@ df_aggregation_forecast <- parallel::mclapply(seq_len(nb_boot),
                                                                      hosp = unique(hosp),
                                                                      .groups = "drop") %>%
                                                            dplyr::mutate(model = factor(model,
-                                                                                        levels = names(model_forecast_labels),
-                                                                                        labels = model_forecast_labels)) %>%
+                                                                                        levels = names(model_labels),
+                                                                                        labels = model_labels)) %>%
                                                            dplyr::mutate(absolute_error = abs(forecast - outcome),
                                                                          relative_error = absolute_error/outcome,
                                                                          baseline_absolute_error = abs(hosp - outcome),
@@ -222,7 +270,8 @@ df_aggregation_forecast <- parallel::mclapply(seq_len(nb_boot),
                                               }) %>%
   bind_rows()
 
-df_aggregation_forecast %>%
+plot_aggregation <- df_aggregation_forecast %>%
+  mutate(mae = if_else(mae > 50, 50, mae)) %>%
   group_by(model, nb_aggregation) %>%
   summarise(mae_mean = mean(mae),
             mae_inf = quantile(mae, 0.025),
@@ -232,11 +281,36 @@ df_aggregation_forecast %>%
                        ymin = mae_inf,
                        ymax = mae_sup,
                        group = model)) +
-  geom_ribbon() +
-  facet_wrap(model ~ .) +
-  lims(y = c(0,50))
-
-df_forecast %>%
-  ggplot(mapping = aes(x = outcomeDate, y = forecast)) +
+  geom_ribbon(fill = "grey", color = NA) +
   geom_point() +
-  facet_wrap(model ~ ., scales = "free")
+  geom_line() +
+  facet_wrap(model ~ .) +
+  lims(y = c(0,50)) +
+  theme_minimal() +
+  labs(x = "Nb of repetition of the model with the best hp set",
+       y = "MAE")
+
+plot_before_aggregation_forecast <- df_forecast %>%
+  mutate(forecast = if_else(forecast > 200, 200, forecast)) %>%
+  ggplot(mapping = aes(x = outcomeDate, y = forecast, color = "Model forecast")) +
+  geom_point() +
+  geom_line(mapping = aes(y = outcome, color = " Outcome")) +
+  geom_line(mapping = aes(y = hosp, color = "Baseline (smoothed hospitalizations)")) +
+  scale_color_manual(values = c("#023047", "#8ECAE6", "#FB8500")) +
+  scale_x_date(date_breaks = "2 months", date_labels =  "%m-%y") +
+  facet_wrap(model ~ ., ncol = 2, labeller = labeller(model = model_labels)) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(x = "Date (month-year)",
+       y = "Hospitalizations",
+       color = "")
+
+saveRDS(object = list(plot_present_data = plot_present_data,
+                      plot_enet_hp = plot_enet_hp,
+                      plot_reservoir_hp = plot_reservoir_hp,
+                      plot_feature_input_scaling = plot_feature_input_scaling,
+                      table_perf_esn = table_perf_esn,
+                      plot_before_aggregation_forecast = plot_before_aggregation_forecast,
+                      plot_aggregation = plot_aggregation,
+                      plot_forecast = plot_forecast),
+        file = "data/precomputed_results.rds")

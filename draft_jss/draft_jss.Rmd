@@ -121,18 +121,6 @@ whereas it is of tremendous interest for epidemiologists. Fifth, there
 is currently no implementation available on R making the use of this
 method challenging for user not familiar with Python.
 
-**TODO : extend this part and link to previous work**
-**Incorporate the following :**
-RC in high dimension
-
-The interest of RC in high dimensional setting is unclear for at least
-two reasons: (i) RC relies primarily on the projection of the low
-dimension input layer to the high dimension space of the reservoir
-neurons and (ii) the high number of features for which each can be
-associated with a different input scaling increases the hyperparameter
-search space making standard approaches such as random search or grid
-search inefficient.
-
 ## what we do
 
 In this paper we propose to explore those challenges with extensive
@@ -231,6 +219,7 @@ library(dplyr)
 library(ggplot2)
 library(reservoirnet)
 library(cowplot)
+library(patchwork)
 
 data("dfCovid")
 dist_forecast = 14
@@ -697,10 +686,6 @@ RC has been used in the context of covid-19 epidemic forecast [@ghosh_reservoir_
 
 `TODO :` check for new published forecast models
 
-`TODO :` add paragraph about RC in high dimension
-
-`TODO :` add paragraph about hp optimisation for RC (focus on GA). Discussed in https://ieeexplore.ieee.org/abstract/document/8481347
-
 RC can be approached as an extension of penalized linear regression where inputs are processed by a reservoir which allows memory and non-linear combinations. As penalized linear regression was the best approach for covid-19 forecast in @ferte_benefit_2022 and that RC showed promising results for epidemic forecast in @ghosh_reservoir_2021, @liu_nanophotonic_2023 and @ray_optimized_2021, we proposed to use RC to forecast hospitalizations at 14 days at the University Hospital of Bordeaux. The main objective of this study is to evaluate the performance of RC for this task. Secondary objective will be (i) to assess the performance of RC depending on the input dimension, (ii) to assess the relevance of Genetic Algorithm (GA) for hyperparameter optimization and feature selection in this context.
 
 ## Methods
@@ -737,89 +722,22 @@ Genetic algorithm feature selection was performed using a binary hyperparameter 
 
 In addition, we investigated if monthly update of hyperparameter was improving the performance and if optimizing the random seed (which defines the connections inside the reservoir) was improving the results.
 
-### Hyperparameter optimisation using GA {#geneticalgo}
+### Hyperparameter optimisation using random search {#geneticalgo}
 
 RC relies mainly on 4 hyperparameters including the leaking rate (i.e "memory" parameter), spectral radius (i.e "chaoticity" parameter), input scaling (i.e "feature gain" parameter) and ridge (i.e penalization parameter). Input scaling can be either, common to all features or specific to each feature which increases the number of hyperparameter by the number of features. As the relevancy of feature for forecast evolves over time, we explored (i) filter based feature selection based on elastic-net before RC which has a penalization hyperparameter denoted as $enet$ and (ii) wrapper feature selection for which each feature has an additional binary hyperparameter defining if it should be selected or not.
 
 Regarding the number of hyperparameter, an automatic approach is necessary. We chose to use a genetic algorithm (GA) which has the benefit of making few assumptions on the link function between the vector of hyperparameter value and the objective function but might need many trials which are possible due to the fast of RC (**TODO : add ref**). The objective function of GA was to minimize the $MREB$ metric **(change ?)**. The pseudo-code of GA is defined as follow :
 
-1.  Initialize :
-
--   Population parameters : $N_{pop} = 200$, $N_e = 100$,
-    $N_{generation} = 30$
--   Cross-over parameters : $N_{tournament} = 2$
--   Mutation parameters : $p_{mutQuant} = .5$, $p_{mutCat} = .25$,
-    $\sigma = 1$ ($\sigma = 0.1$ for leaking rate as the hyperparameter
-    range is shorter)
--   Define the $hyperparameter\_list$, a list containing each
-    hyperparameter denoted as $param$.
--   `for` each $param$ in $hyperparameter\_list$ define hyperparameter
-    $search\_space$ :
-    -   the $lower$ and $upper$ bounds,
-    -   the $type$ (numeric, integer, categorical)
-    -   if it should be $log$ transformed (True, False)
-
-2.  Define main functions
-    -   Define $tournamentSelection(N_{pop}, N_{tournament})$:
-        -   Get the best $N_{pop}$ individuals from previous generations
-        -   Randomly select $N_{tournament}$ challengers among them
-        -   Get the best individuals from the challengers
-        -   Repeat twice to get a father and a mother
-        -   `return` $father, \: mother$
-    -   Define
-        $crossoverMutation(pere\$param\$value, mere\$param\$value, param\$search\_space)$:
-        -   `if` $search\_space\$log$ $\newline$
-            $\text{} \qquad pere\$param\$value = log_{10}(pere\$param\$value)$
-            $\newline$
-            $\text{} \qquad mere\$param\$value = log_{10}(mere\$param\$value)$
-
-        -   sample $alp$ and $mut$ probabilities from $\mathcal{U}(0,1)$
-
-        -   Cross-over, and define $child\$param\$value$ as :
-
-            -   Numerical :
-                $alp*pere\$param\$value + (1-alp)*mere\$param\$value$
-            -   Integer :
-                $round( alp*pere\$param\$value + (1-alp)*mere\$param\$value)$
-            -   Categorical :
-                $sample(x = c(pere\$param\$value, mere\$param\$value), \newline\text{}\qquad\text{}\qquad\text{}\qquad\text{}\qquad\text{}\qquad prob = c(alp, 1-alp))$
-
-        -   `if` $mut < p_{mutQuant}$ or $mut < p_{mutCat}$ for
-            quantitative and categorical features respectively, mutate :
-
-            -   Categorical : sample another modality
-            -   Integer : add or substract 1 at random
-            -   Numerical : Add $\sigma", "imes \mathcal{N}(0,1)$
-
-        -   `if` $search\_space\$log$ :
-            $child\$param\$value = 10^{child\$param\$value}$
-
-        -   `return` $child\$param\$value$
-    -   Define $geneticSearch(N_{pop}, N_{tournament})$ :
-        -   $pere, \: mere = tournamentSelection(N_{pop}, N_{tournament})$
-        -   `for` $param$ in $hyperparameter\_list$ : $\newline$
-            $\text{} \qquad child\$param\$value = crossoverMutation(\newline\text{}\qquad\text{}\qquad\text{}\qquad\text{}\qquad\text{}\qquad pere\$param\$value, \newline\text{}\qquad\text{}\qquad\text{}\qquad\text{}\qquad\text{}\qquad mere\$param\$value, \newline\text{}\qquad\text{}\qquad\text{}\qquad\text{}\qquad\text{}\qquad param\$search\_space)$
-        -   `return` $child$
-3.  Run the algorithm
-    -   Step 1 : Initialize genetic algorithm
-        -   Sample $N_{pop}$ individuals (i.e set of hyperparameters)
-            using random search
-    -   Step 2 : Run genetic algorithm
-        -   $generation = 1$
-        -   `while` $generation < Ngeneration$ :
-            -   $generation = generation + 1$
-            -   sample $N_{pop}$ individuals using $geneticSearch$
-                function
-
 For each hyperparameter, we must define the boundaries of the search space. We chose a large search space because we had few hypothesis to restrict it. Spectral radius and input scaling were defined on $[10^{-5} ; 10^5]$, leaking rate on $[10^{-5} ; 1]$, ridge on $[10^{-10} ; 10^5]$.
 
 The penalization for elastic-net feature selection was initially defined on $[10^{-10} ; 10^5]$. However, first experiments showed that, after few generations, GA was stuck in a area were no feature selection was performed and without the ability to sample new individuals with feature selection. This phenomena is likely to append for evolutionary algorithm where the sampling variance is small compared to the search space. This phenomena is depicted at figure \@ref(fig:enetNbFeatures) were there is no feature selection performed when penalization is below $10^{-4}$. To mitigate this problem, we chose to restrict the search space on $[10^{-4} ; 10^5]$.
 
-```{r enetNbFeatures, echo = FALSE, fig.cap = "Number of features depending elastic-net penalization. Data from the 100 best enet hp sets. Variability represented by boxplot are due to the penalization applied at different dates.", out.width="75%"}
-knitr::include_graphics(path = here::here("draft_jss/images/GA/fig-plot_enet_nb_features-1.png"))
+## Results
+
+```{r}
+ls_use_case <- readRDS(file = here::here("data/precomputed_results.rds"))
 ```
 
-## Results
 
 **TODO : change optimisation metric = mean absolute error ?**
 **TODO : optimise the seed ?**
@@ -831,8 +749,8 @@ knitr::include_graphics(path = here::here("draft_jss/images/GA/fig-plot_enet_nb_
 
 The goal of this task is to predict 14 days ahead the hospitalization curve depicted at figure \@ref(fig:casestudyhospitalizations). It shows both the training set (i.e before 2021-03-01) and the test set encompass several slope shifts which are difficult to forecast. We will first introduce the results of the genetic algorithm hyperparameter optimization and then present the forecast performance.
 
-```{r casestudyhospitalizations, echo = FALSE, fig.cap = "Hospitalizations at the university hospital of Bordeaux", out.width="75%"}
-knitr::include_graphics(path = here::here("draft_jss/images/monthly update/fig-eval-setting-1.png"))
+```{r ucPresentData, echo = FALSE, fig.cap = "Data of the use case. Outcome of interest is presented in orange. Model will be trained to forecast outcome variation but will be used to Outcome for performance and representation. Other features are represented in darkblue.", fig.height=10}
+ls_use_case$plot_present_data
 ```
 
 ### Hyperparameter optimisation
@@ -841,68 +759,8 @@ knitr::include_graphics(path = here::here("draft_jss/images/monthly update/fig-e
 
 In this section we will first introduce the results for the features selected based on expert knowledge with multiple input scaling and for the features selected by genetic algorithm with multiple input scaling and seed optimization.
 
-#### Epidemiology subset with multiple input scaling
-
-```{r GAMultipleisEpidemioOptim, echo = FALSE, fig.cap = "Hyperparameter optimisation on epidemiological subet with multiple input scaling. 2021-03-01 correspond to the result of approximately 3200 trials, subsequent dates corresponds to the result of approximately 1200 trials. For each optimisation date, only values of the 200 best individuals are shown.", fig.height=8}
-p1 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/monthly update/GA_multipleis_epidemio/unnamed-chunk-19-1.png"))
-p2 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/monthly update/GA_multipleis_epidemio/unnamed-chunk-20-1.png"))
-p3 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/monthly update/GA_multipleis_epidemio/unnamed-chunk-21-1.png"))
-p4 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/monthly update/GA_multipleis_epidemio/unnamed-chunk-22-1.png"))
-
-cowplot::plot_grid(p1, p2, p3, p4, nrow = 2, ncol = 2,
-                   labels = c("(a) Convergence",
-                              "(b) Marginal",
-                              "(c) Conditional",
-                              "(d) Feature importance (input scaling)"),
-                   label_size = 8,
-                   label_y = 1.01)
-```
-
-Figures \@ref(fig:GAMultipleisEpidemioOptim) show the marginal value of hyperparameters selected by GA over the different optimization time at panels (a) and (b). We note that both leaking rate and ridge values selected on the train set were not well adapted to the test set, they increased rapidly and then stabilized indicating a need leverage more information from new inputs compared to old inputs (leaking rate) and to decrease overfitting (ridge). The spectral radius progressively decreased over time which might indicate less importance for non-linear feature projection and a need for less chaotic reservoir.
-
-Panel (c) shows conditional values of hyperparameters. We observe that the outlined hyperparameters are independent one from another except for the linear association between leaking rate and ridge but which was observed only for the first updates. **I remember Pierrick told us that independance was a good property (probably because if two hp are correlated you can just focus on the optimisation of 1 and deduce the other) but we might need a reference here.**
-
-Panel (d) shows feature importance, depicted by the feature input scaling (i.e the higher the more important), over the different time period. It is interesting to note that feature importance vary over time and that important features before 2021-03-01 (IPTCC, derivative of hospitalizations) have an importance decrease of contrary to features related to fraction of positive RT-PCR in the elderly which remained important. **Need to change the features label of the figure.**
-
-#### GA feature selection with multiple input scaling and seed control
-
-```{r GAMultipleisGAOptim, echo = FALSE, fig.cap = "Hyperparameter optimisation with GA feature selection with multiple input scaling and seed optimisation. 2021-03-01 correspond to the result of approximately 3200 trials, subsequent dates corresponds to the result of approximately 1200 trials. For each optimisation date, only values of the 200 best individuals are shown.", fig.height=8}
-p1 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/monthly update/GA_multipleISseed_GA/unnamed-chunk-39-1.png"))
-p2 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/monthly update/GA_multipleISseed_GA/unnamed-chunk-40-1.png"))
-p3 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/monthly update/GA_multipleISseed_GA/unnamed-chunk-41-1.png"))
-p4 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/monthly update/GA_multipleISseed_GA/unnamed-chunk-42-1.png"))
-
-cowplot::plot_grid(p1, p2, p3, p4, nrow = 2, ncol = 2,
-                   labels = c("(a) Convergence",
-                              "(b) Marginal",
-                              "(c) Conditional",
-                              "(d) Feature selection frequency"),
-                   label_size = 8,
-                   label_y = 1.01)
-```
-
-Figure \@ref(fig:GAMultipleisGAOptim) show the marginal value of hyperparameters selected by GA over the different optimization time at panel (a) and (b). Leaking rate remained stable over time but again, spectral radius decreased and ridge increased indicating a lesser need for non-linear feature recombination and higher need to control for overfitting. Off note we outlined the seed hyperparameter here. Seed controls the randomness of RC connections and its value do not have epidemiological interpretation. Figure Panel (c) shows hyperparameter independence.
-
-Panel (d) shows feature selection over the different time period. It outlines that most important features (i.e the most often selected ones) are the ones related to RT-PCR, specifically for the elderly. We also note the importance of features related to emergency and ambulance departments. In addition, we observe that feature importance did not remained constant over time justifying the need for an adaptive feature selection algorithm.
-
-### Anteriority
-
-**TODO : if we keep this section, we should update with same hyperparameter (feature selection with only 30 features for GA multiple input scaling) and same aggregation mechanism as in the present forecast performance to have something clean.**
-
-Because epidemic mechanism change over time, it could of interest not to provide all the time series to the model but only its most recent data. We investigate whether the data anteriority we used to train and test the model had an impact on its performance. Because the hyperparameter optimization process is long, the hyperparameter used were optimized on all the time series (i.e 542 days).
-
-Results of the experiment are outlined at figure \@ref(fig:anteriorityPerformance). We show that at least 1 year of data seems necessary to leverage enough information. This is what will be used in the remaining sections. **Note that epidemio with one input scaling had very good performance on this evaluation.**
-
-```{r anteriorityPerformance, echo = FALSE, fig.cap = "Performance depending on number of days used to train the model. 10 iterations with different seed for each of 10 best hyperparameters sets. Boxplots corresponds to individual models performance (no aggregation) and diamond is the median forecast of the 100 models.", out.width="75%"}
-knitr::include_graphics(path = here::here("draft_jss/images/anteriority/fig-plot_anteriority-test-set-1.png"))
+```{r ucHyperparam, fig.cap="Hyperparameter evaluation on training set by random search. Hp sets with MAE above 30 were removed for clarity of visualisation.", fig.height=12}
+ls_use_case$plot_reservoir_hp / ls_use_case$plot_feature_input_scaling + plot_annotation(tag_levels = 'A')
 ```
 
 ### Number of model to aggregate
@@ -910,112 +768,30 @@ knitr::include_graphics(path = here::here("draft_jss/images/anteriority/fig-plot
 **TODO : if we keep this section, we should update with same hyperparameter (feature selection with only 30 features for GA multiple input scaling) and same aggregation mechanism as in the present forecast performance to have something clean.**
 **Note : if we optimize the seed, then the repetition of a given set of hyperparameter makes no sense (i.e will provide same results each time).**
 
-```{r modelBudget, echo = FALSE, fig.cap = "Performance dependending on number of hyperparameter sets (model) and the scenario used. Panel (a) explores two scenario : one where the best hyperparameter set is replicated x times with different seed, one where the x best hyperparameter sets are used with one seed each. Each scenario is evaluated with the aggregation of 1, 3, 5, 10, 20, 30, 40, 60 or 100 models with 250 bootstrap 95\\%CI Panel (b) explores the optimal balance between both approaches with a budget of 40 models.", fig.height=8}
-p1 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/budget/fig-plot_aggregation_convergence-1.png"), scale = 0.9)
-p2 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/budget/fig-plot_aggregation_convergence_budget-1.png"), scale = 0.9)
+```{r ucAggregation, echo = FALSE, fig.cap = "Aggregation of several reservoir. Due to its intrisic chaoticity, a same hyperparameter set can results in heterogeneous forecast. Panel A shows the individual forecast of 40 repetition of the same hyperparameter set for the different RC configuration. Panel B shows the impact of aggregating several RC with the same set of HP. It has small interest when the input layer was not connected to output layer but significantly improves the performance otherwise.", fig.height=8}
+ls_use_case$plot_before_aggregation_forecast + ls_use_case$plot_aggregation + plot_annotation(tag_levels = 'A')
 
-cowplot::plot_grid(p1, p2, nrow = 2, ncol = 1,
-                   labels = c("(a) Number of models needed",
-                              "(b) Optimal budget repartition"),
-                   label_size = 8,
-                   label_y = 1.01)
 ```
-
-```{r best40epidemio, echo = FALSE, fig.cap = "Performance of each of the best 40 hp sets with 40 replicate each. 250 Bootstrap 95\\%CI. Epidemiology subset with one input scaling.", out.width="75%"}
-knitr::include_graphics(path = here::here("draft_jss/images/budget/fig-plot_aggregation_best40epidemio-1.png"))
-```
-
-Figure \@ref(fig:modelBudget) shows the model performance depending on the model and the aggregation process. We observe that for all models, the model performance seems achieved at 30 models, therefore, for remaining results, 40 models will be used. All models showed that the best aggregation mechanism was to use different hyperparameter sets instead of using the best hyperparameter set with different seeds. The exception was the epidemiology subset with single input scaling whose best performance was achieved using only the first two models. This is explained by the low performance of the fourth best hyperparameter set on the test set as depicted at figure \@ref(fig:best40epidemio).
 
 ### Present forecast performance
 
 ```{r perfMonthlyUpdate, echo = FALSE}
-tibble::tribble(
-  ~"Update", ~"Feature", ~"Nb. Features", ~"MAE", ~"MRE", ~"MAEB", ~"MREB ",
-  "No", "Epi - Single IS", 14.0, 13.79, 0.34, -2.92, 0.77 ,
-  "Yes", "Epi - Single IS", 14.0, 10.16, 0.32, -5.09, 0.67 ,
-  "No", "Epi - Multiple IS", 14.0, 9.35, 0.28, -5.31, 0.66 ,
-  "Yes", "Epi - Multiple IS", 14.0, 11.83, 0.31, -2.03, 0.80 ,
-  "No", "GA - Single IS", 231.0, 10.62, 0.28, -5.05, 0.72 ,
-  "Yes", "GA - Single IS", 225.0, 9.33, 0.28, -4.76, 0.72 ,
-  "No", "GA - Multiple IS", 227.0, 9.67, 0.33, -3.64, 0.71 ,
-  "Yes", "GA - Multiple IS", 227.5, 9.45, 0.29, -3.90, 0.69 ,
-  "No", "GA - Multiple IS (seed)", 225.0, 10.68, 0.27, -4.37, 0.72 ,
-  "Yes", "GA - Multiple IS (seed)", 227.5, 10.20, 0.28, -5.33, 0.68 ,
-  "No", "Enet - Single IS", 172.0, 11.72, 0.31, -3.29, 0.79 ,
-  "Yes", "Enet - Single IS", 208.0, 13.68, 0.35, -2.58, 0.81) %>%
-  knitr::kable(caption = "Model performance with or without monthly update (Update), feature selection (Feature). For each setting, 40 reservoir are computed and the forecast is the median of the 40 forecast. Results show the mean number of features and the performance metrics. MAE = Median Absolute Error, MRE = Median Relative Error, MAEB = Median Absolute Error to Baseline, MREB = Median Relative Error to Baseline.",
+ls_use_case$table_perf_esn %>%
+  knitr::kable(caption = "Model performance with several reservoir configuration. For each setting, 40 reservoir are computed and the forecast is the median of the 40 forecast. Results show the mean number of features and the performance metrics. MAE = Mean Absolute Error, MRE = Median Relative Error, MAEB = Mean Absolute Error to Baseline, MREB = Median Relative Error to Baseline.",
+               col.names = c("Model", "MAE", "MRE", "MAEB", "MREB"),
                booktabs = TRUE,
-               linesep = c('', '\\addlinespace'))
+               linesep = c('', '\\addlinespace'), digits = 2)
 ```
 
 Table \@ref(tab:perfMonthlyUpdate) shows the performance on the test set. The number of selected features by elastic-net and by genetic algorithm were in the same order of magnitude. Updating the hyperparameter monthly did not always improve forecast accuracy (e.g epidemiological subset with multiple input scaling). Best model depend on the metric but epidemiological subset with multiple input scaling and no update was the best model or second to best model for all metrics.
 
 ```{r forecastwithorwithoutUpdate, echo = FALSE, fig.cap = "Reservoir computing forecast depending on the setting with and without monthly update. Red line is the median forecast of 40 reservoirs. Grey lines are individual forecast of each of the 40 reservoir.", fig.height=8}
-p1 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/monthly update/fig-eval-prediction-noupdate-1.png"))
-p2 <- cowplot::ggdraw() +
-  cowplot::draw_image(here::here("draft_jss/images/monthly update/fig-eval-prediction-update-1.png"))
-
-cowplot::plot_grid(p1, p2, nrow = 2, ncol = 1,
-                   labels = c("(a) No update",
-                              "(b) Monthly update"),
-                   label_size = 8,
-                   label_y = 1.01)
+ls_use_case$plot_forecast
 ```
 
 Figure \@ref(fig:forecastwithorwithoutUpdate) shows the forecast with and without monthly hyperparameter update. Graphically we observe that the forecast of individual models (in grey) are chaotic and that forecast aggregation (in red) is necessary. This is less concerning for epidemiological subset with multiple input scaling or when the seed is controlled. In terms of performance, we observe similar conclusion as the one depicted for table \@ref(tab:perfMonthlyUpdate). However, the model errors did not occur for the same period for each model. For instance, the epidemiological with multiple scaling and monthly update error is located mainly during the winter 2022 increase. Model based on all features tend to overestimate the length of the summer 2021 wave.
 
-```{r perfPreviousExpNoFeatureSelection, echo = FALSE}
-tibble::tribble(
-  ~"Update", ~"Feature", ~"Nb. Features", ~"MAE", ~"MRE", ~"MAEB", ~"MREB ",
-  "No", "Epi - Single IS", 14.0, 12.08, 0.26, -3.04, 0.76,
-  "No", "Epi - Multiple IS", 14.0, 11.83, 0.28, -4.96, 0.67,
-  "No", "Epi - Multiple IS*", 14.0, 10.73, 0.28, -5.47, 0.65,
-  "No", "No FS - Single IS", 456.0, 9.38, 0.24, -5.23, 0.64,
-  "No", "No FS - Single IS*", 456.0, 12.16, 0.28, -4.38, 0.71,
-  "No", "Enet - Single IS", 153.5, 12.51, 0.30, -4.76, 0.76,
-  "No", "GA - Multiple IS limited to 30 features", 20.5, 10.47, 0.27, -3.03, 0.75,
-  "No", "CMAES - Multiple IS", 374.0, 13.91, 0.26, -2.62, 0.83
-  ) %>%
-  knitr::kable(caption = "Model performance depending on feature selection (Feature). For each setting, several reservoir are computed and the forecast is the median of the 40 forecast. Reservoir aggregation could be either to use the 10 best hyperparameter set once resulting in 10 models or to replicate each of the 10 best hyperparameter set 10 times (those models are denoted by a *) resulting in 100 models. Feature selection based on GA and CMAES use top k features with the highest input scaling instead of an indicator for each feature as previously depicted and GA was limited to 30 features. Models depicted as 'No FS' are models without feature selection. Results show the mean number of features and the performance metrics. MAE = Median Absolute Error, MRE = Median Relative Error, MAEB = Median Absolute Error to Baseline, MREB = Median Relative Error to Baseline.",
-               booktabs = TRUE,
-               linesep = c('\\addlinespace'))
-```
-
-Table \@ref(tab:perfPreviousExpNoFeatureSelection) shows additional results from previous experiences without monthly update of hyperparameter. The performance without feature selection are good compared to other results. Maybe we should give it a try and add it to table \@ref(tab:perfMonthlyUpdate) ?
-
 ## Discussion
-
-# Previous work
-
-Those work were done previously, the setting of train/test and hyperparameter optimisation were different and probably they should be done again in a similar setting for relevant comparison.
-
-## Raw outcome, first derivative or second derivative ?
-
-<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/00_reporting/explore_esn.md>
-
-## Raw feature or scaled feature ?
-
-<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/00_reporting/explore_esn.md>
-
-## Smoothed or not smoothed
-
-<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/00_reporting/explore_esn.md>
-
-## Number of nodes
-
-<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/00_reporting/explore_esn_r_pipeline.md>
-
-## Use of second derivative among the interesting features
-
-<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/00_reporting/tune_esn2.md>
-
-## Results of random sampling with R
-
-<https://github.com/thomasferte/PredictCovid/blob/esn_update_report/reporting/02_esn/01_explore_esn_prediction/meeting_1801/master_report.md>
 
 # Discussion and conclusion
 
