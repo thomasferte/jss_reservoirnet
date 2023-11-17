@@ -12,7 +12,6 @@ data_covid <- readRDS(file = "data/df_obfuscated_epidemio.rds")
 forecast_days = 14
 warmup = 30
 units = 500
-nb_hp_set = 1
 nb_iter = 40
 ##### LOAD BEST HP SETS
 hp_sets = list(common_input_scaling = "data/common_input_scaling_11423760/",
@@ -28,7 +27,7 @@ hp_sets = list(common_input_scaling = "data/common_input_scaling_11423760/",
   })
 
 best_hp_set = lapply(hp_sets,
-                     function(x) x %>% slice_min(mean_absolute_error, n = nb_hp_set))
+                     function(x) x %>% slice_min(mean_absolute_error, n = 1))
 ##### DEFINE EVALUATION SET
 vecDates <- data_covid %>%
   filter(START_DATE >= as.Date("2021-03-01") + forecast_days) %>%
@@ -36,139 +35,64 @@ vecDates <- data_covid %>%
 
 date_i <- vecDates[slar_taskid]
 message(paste0("--------- evaluation date : ", date_i, " ----------"))
-##### COMMON INPUT SCALING
-message("--------- COMMON INPUT SCALING ----------")
-forecast_common_is <- lapply(X = 1:nrow(best_hp_set$common_input_scaling),
-                             FUN = function(row_i){
-                               row = best_hp_set$common_input_scaling[row_i,]
-                               fct_iterative_forecast_from_hp(data_covid = data_covid,
-                                                              vecDates = date_i,
-                                                              warmup = warmup,
-                                                              forecast_days = forecast_days,
-                                                              units = units,
-                                                              lr = as.numeric(row[["leaking_rate"]]),
-                                                              sr = as.numeric(row[["spectral_radius"]]),
-                                                              ridge = as.numeric(row[["ridge"]]),
-                                                              input_scaling = as.numeric(row[["input_scaling"]]),
-                                                              seed = as.integer(row[["seed"]]),
-                                                              link_source = as.logical(row[["link_source"]]),
-                                                              model = "esn",
-                                                              nb_iter = nb_iter) %>%
-                                 mutate(hp_set = row[["hp_set"]])
-                             }) %>%
-  bind_rows() %>%
-  mutate(model = "esn_common_is")
-##### COMMON INPUT SCALING (linked source)
-message("--------- COMMON INPUT SCALING LS ----------")
-forecast_common_is_linked_source <- lapply(X = 1:nrow(best_hp_set$common_input_scaling_linked_source),
-                                           FUN = function(row_i){
-                                             row = best_hp_set$common_input_scaling_linked_source[row_i,]
-                                             fct_iterative_forecast_from_hp(data_covid = data_covid,
-                                                                            vecDates = date_i,
-                                                                            warmup = warmup,
-                                                                            forecast_days = forecast_days,
-                                                                            units = units,
-                                                                            lr = as.numeric(row[["leaking_rate"]]),
-                                                                            sr = as.numeric(row[["spectral_radius"]]),
-                                                                            ridge = as.numeric(row[["ridge"]]),
-                                                                            input_scaling = as.numeric(row[["input_scaling"]]),
-                                                                            seed = as.integer(row[["seed"]]),
-                                                                            link_source = as.logical(row[["link_source"]]),
-                                                                            model = "esn",
-                                                                            nb_iter = nb_iter) %>%
-                                               mutate(hp_set = row[["hp_set"]])
-                                           }) %>%
-  bind_rows() %>%
-  mutate(model = "esn_common_is_linked_source")
-##### MULTIPLE INPUT SCALING
-message("--------- MULTIPLE INPUT SCALING ----------")
-forecast_multiple_is <- lapply(X = 1:nrow(best_hp_set$multiple_input_scaling),
-                               FUN = function(row_i){
-                                 row = best_hp_set$multiple_input_scaling[row_i,]
-                                 input_scaling = row %>%
-                                   dplyr::select(-c("hp_set",
-                                                    "ridge",
-                                                    "leaking_rate",
-                                                    "spectral_radius",
-                                                    "seed",
-                                                    "mean_absolute_error",
-                                                    "time"))
-                                 
-                                 fct_iterative_forecast_from_hp(data_covid = data_covid,
-                                                                vecDates = date_i,
-                                                                warmup = warmup,
-                                                                forecast_days = forecast_days,
-                                                                units = units,
-                                                                lr = as.numeric(row[["leaking_rate"]]),
-                                                                sr = as.numeric(row[["spectral_radius"]]),
-                                                                ridge = as.numeric(row[["ridge"]]),
-                                                                input_scaling = input_scaling,
-                                                                seed = as.integer(row[["seed"]]),
-                                                                link_source = as.logical(row[["link_source"]]),
-                                                                model = "esn",
-                                                                nb_iter = nb_iter) %>%
-                                   mutate(hp_set = row[["hp_set"]])
-                               }) %>%
-  bind_rows() %>%
-  mutate(model = "esn_multiple_is")
-##### MULTIPLE INPUT SCALING  (linked source)
-message("--------- MULTIPLE INPUT SCALING LS ----------")
-forecast_multiple_is_linked_source <- lapply(X = 1:nrow(best_hp_set$multiple_input_scaling_linked_source),
-                                             FUN = function(row_i){
-                                               row = best_hp_set$multiple_input_scaling_linked_source[row_i,]
-                                               input_scaling = row %>%
-                                                 dplyr::select(-c("hp_set",
-                                                                  "ridge",
-                                                                  "leaking_rate",
-                                                                  "spectral_radius",
-                                                                  "seed",
-                                                                  "mean_absolute_error",
-                                                                  "time"))
-                                               
-                                               fct_iterative_forecast_from_hp(data_covid = data_covid,
-                                                                              vecDates = date_i,
-                                                                              warmup = warmup,
-                                                                              forecast_days = forecast_days,
-                                                                              units = units,
-                                                                              lr = as.numeric(row[["leaking_rate"]]),
-                                                                              sr = as.numeric(row[["spectral_radius"]]),
-                                                                              ridge = as.numeric(row[["ridge"]]),
-                                                                              input_scaling = input_scaling,
-                                                                              seed = as.integer(row[["seed"]]),
-                                                                              link_source = as.logical(row[["link_source"]]),
-                                                                              model = "esn",
-                                                                              nb_iter = nb_iter) %>%
-                                                 mutate(hp_set = row[["hp_set"]])
-                                             }) %>%
-  bind_rows() %>%
-  mutate(model = "esn_multiple_is_linked_source")
-##### ELASTIC-NET
-message("--------- ELASTIC-NET ----------")
-forecast_enet_once <- fct_iterative_forecast_from_hp(data_covid = data_covid,
-                                                vecDates = date_i,
-                                                forecast_days = forecast_days,
-                                                lambda = best_hp_set$enet$lambda,
-                                                alpha = best_hp_set$enet$alpha,
-                                                model = "enet") %>%
-  mutate(model = "enet_hp_on_train_set",
-         hp_set = 1)
 
-message("--------- ELASTIC-NET (daily hp update) ----------")
-forecast_enet_daily <- fct_iterative_forecast_from_hp(data_covid = data_covid,
-                                                vecDates = date_i,
-                                                forecast_days = forecast_days,
-                                                model = "enet") %>%
-  mutate(model = "enet_daily_hp_update",
-         hp_set = 1)
+##### FORECAST
+dfres <- lapply(names(best_hp_set),
+       function(model_set){
+         hp_set <- best_hp_set[[model_set]]
+         if(model_set == "enet"){
+           ##### ELASTIC-NET
+           forecast_enet_once <- fct_iterative_forecast_from_hp(data_covid = data_covid,
+                                                                vecDates = date_i,
+                                                                forecast_days = forecast_days,
+                                                                lambda = best_hp_set$enet$lambda,
+                                                                alpha = best_hp_set$enet$alpha,
+                                                                model = "enet") %>%
+             mutate(model = "enet_hp_on_train_set",
+                    hp_set = hp_set$hp_set)
+           forecast_enet_daily <- fct_iterative_forecast_from_hp(data_covid = data_covid,
+                                                                 vecDates = date_i,
+                                                                 forecast_days = forecast_days,
+                                                                 model = "enet") %>%
+             mutate(model = "enet_daily_hp_update",
+                    hp_set = 1)
+           
+           res <- bind_rows(forecast_enet_once, forecast_enet_daily)
+         } else {
+           ##### RESERVOIR
+           if(model_set %in% c("common_input_scaling", "common_input_scaling_linked_source")){
+             input_scaling <- hp_set$input_scaling
+           } else if(model_set %in% c("multiple_input_scaling", "common_input_scaling_linked_source")){
+             input_scaling = row %>%
+               dplyr::select(-c("hp_set",
+                                "ridge",
+                                "leaking_rate",
+                                "spectral_radius",
+                                "seed",
+                                "mean_absolute_error",
+                                "time"))
+           }
+           res <- fct_iterative_forecast_from_hp(data_covid = data_covid,
+                                                 vecDates = date_i,
+                                                 warmup = warmup,
+                                                 forecast_days = forecast_days,
+                                                 units = units,
+                                                 lr = hp_set$leaking_rate,
+                                                 sr = hp_set$spectral_radius,
+                                                 ridge = hp_set$ridge,
+                                                 input_scaling = input_scaling,
+                                                 seed = hp_set$seed,
+                                                 link_source = hp_set$link_source,
+                                                 model = "esn",
+                                                 nb_iter = nb_iter) %>%
+             mutate(hp_set = row[["hp_set"]],
+                    model = model_set)
+         } 
+       }) %>%
+  bind_rows()
+
 ##### SAVE
 message("--------- SAVE ----------")
-dfres = bind_rows(forecast_common_is,
-                  forecast_common_is_linked_source,
-                  forecast_multiple_is,
-                  forecast_multiple_is_linked_source,
-                  forecast_enet_once,
-                  forecast_enet_daily)
-
 fct_save_results(subDir = paste0("data/results_forecast_testset_", slar_jobid),
                  slar_taskid = slar_taskid,
                  object = dfres)
