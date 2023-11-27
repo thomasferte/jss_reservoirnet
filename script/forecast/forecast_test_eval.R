@@ -2,7 +2,7 @@
 library(dplyr)
 library(ggplot2)
 
-source("functions/fct_smoothing_derivative.R")
+source(here::here("functions/fct_smoothing_derivative.R"))
 
 ##### load data
 ls_files_results <- list.files("data/results_forecast_testset_11495493/", full.names = TRUE)
@@ -36,38 +36,38 @@ hp_features <- c("hosp",
                  "Vaccin_1dose_rolDeriv7")
 
 feature_labels <- conservation_status <- c(
-  "outcome" = "Outcome",
-  "outcomeDeriv" = "Outcome variation",
+  "outcome" = "Hospitalisations t+14",
+  "outcomeDeriv" = "Outcome",
   "input_scaling" = "Input scaling",
   "leaking_rate" = "Leaking rate",
   "ridge" = "Ridge",
   "spectral_radius" = "Spectral radius",
   "hosp" = "Hospitalizations",
-  "P_TOUS_AGES" = "Positive RT-PCR",
-  "P_60_90_PLUS_ANS" = "Positive RT-PCR 60 yo+",
-  "FRACP_TOUS_AGES" = "% Positive RT-PCR",
-  "FRACP_60_90_PLUS_ANS" = "% Positive RT-PCR 60 yo+",
-  "URG_covid_19_COUNT" = "Emergency sojourn with covid-19",
+  "P_TOUS_AGES" = "RT-PCR+",
+  "P_60_90_PLUS_ANS" = "RT-PCR+ 60 yo+",
+  "FRACP_TOUS_AGES" = "% RT-PCR+",
+  "FRACP_60_90_PLUS_ANS" = "% RT-PCR+ 60 yo+",
+  "URG_covid_19_COUNT" = "Emergency",
   "IPTCC.mean" = "IPTCC",
   "Vaccin_1dose" = "Vaccine",
-  "hosp_rolDeriv7" = "Hospitalizations (1st deriv)",
-  "P_TOUS_AGES_rolDeriv7" = "Positive RT-PCR (1st deriv)",
-  "P_60_90_PLUS_ANS_rolDeriv7" = "Positive RT-PCR 60 yo+ (1st deriv)",
-  "FRACP_TOUS_AGES_rolDeriv7" = "% Positive RT-PCR (1st deriv)",
-  "FRACP_60_90_PLUS_ANS_rolDeriv7" = "% Positive RT-PCR 60 yo+ (1st deriv)",
-  "URG_covid_19_COUNT_rolDeriv7" = "Emergency sojourn with covid-19 (1st deriv)",
-  "IPTCC.mean_rolDeriv7" = "IPTCC (1st deriv)",
-  "Vaccin_1dose_rolDeriv7" = "Vaccine (1st deriv)"
+  "hosp_rolDeriv7" = "Hospitalizations (d)",
+  "P_TOUS_AGES_rolDeriv7" = "RT-PCR+ (d)",
+  "P_60_90_PLUS_ANS_rolDeriv7" = "RT-PCR+ 60 yo+ (d)",
+  "FRACP_TOUS_AGES_rolDeriv7" = "% RT-PCR+ (d)",
+  "FRACP_60_90_PLUS_ANS_rolDeriv7" = "% RT-PCR+ 60 yo+ (d)",
+  "URG_covid_19_COUNT_rolDeriv7" = "Emergency (d)",
+  "IPTCC.mean_rolDeriv7" = "IPTCC (d)",
+  "Vaccin_1dose_rolDeriv7" = "Vaccine (d)"
 )
 
 model_labels <- c(
-  "common_input_scaling" = "Common IS \n\n R %>>% output",
-  "common_input_scaling_linked_source" = "Common IS \n\n input + R %>>% output",
-  "multiple_input_scaling" = "Multiple IS \n\n R %>>% output",
-  "multiple_input_scaling_linked_source" = "Multiple IS \n\n input + R %>>% output",
+  "common_input_scaling" = "Common IS \n\n R %>>% O",
+  "common_input_scaling_linked_source" = "Common IS \n\n I + R %>>% O",
+  "multiple_input_scaling" = "Multiple IS \n\n R %>>% O",
+  "multiple_input_scaling_linked_source" = "Multiple IS \n\n I + R %>>% O",
   "enet" = "Elastic-net",
   "enet_hp_on_train_set" = "Elastic-net",
-  "enet_daily_hp_update" = "Elastic-net (alpha = 0.5, lambda = daily updated)"
+  "enet_daily_hp_update" = "Elastic-net (hp daily updated)"
 )
 
 ##### present data
@@ -76,13 +76,14 @@ data_i <- fct_smoothing_derivative(data = df_obfuscated_epidemio,
                                    forecast_days = 14)
 
 plot_present_data <- data_i %>%
-  select(-START_DATE) %>%
+  select(-START_DATE, -ends_with("rolDeriv7")) %>%
   tidyr::pivot_longer(cols = -"outcomeDate") %>%
   mutate(name = factor(name, levels = names(feature_labels), labels = feature_labels)) %>%
   ggplot(mapping = aes(x = outcomeDate, y = value, color = name)) +
   geom_line() +
   geom_vline(xintercept = as.Date("2021-03-01"), linetype = 2) +
   scale_color_manual(values = c(rep("#FB8500",2), rep("#023047", 16))) +
+  scale_x_date(date_breaks = "5 months", date_labels =  "%m-%y") +
   facet_wrap(name ~ ., scales = "free",
              ncol = 2) +
   theme_minimal() +
@@ -158,23 +159,23 @@ plot_reservoir_hp <- df_hp %>%
        color = "") 
 
 plot_feature_input_scaling <- df_hp %>%
-  filter(HP %in% hp_features) %>%
+  filter(HP %in% hp_features,
+         model == "multiple_input_scaling") %>%
   ggplot(mapping = aes(x = HP_value, 
                        y = mean_absolute_error,
                        color = rank_perf_color)) +
   geom_point() +
-  facet_grid(model ~ HP, scales = "free_x",
+  facet_wrap(HP ~ ., scales = "free_x",
              labeller = labeller(model = model_labels,
-                                 HP = feature_labels)) +
+                                 HP = feature_labels),
+             ncol = 3) +
   scale_x_log10(labels = scales::trans_format("log10", scales::label_math(10^.x)),
                 breaks = c(1e-10, 1e-5, 1e0, 1e5, 1e10),
                 minor_breaks = 10^(seq(-10, 5))) +
+  scale_y_continuous(breaks = c(15, 20, 30)) +
   scale_color_manual(values = c("blue", "#E76F51", "#E9C46A", "#2A9D8F")) +
-  lims(y = c(15, 30)) +
   theme_minimal() + 
-  theme(legend.position = "bottom",
-        strip.text.y = element_text(angle = 0),
-        strip.text.x = element_text(angle = 90)) +
+  theme(legend.position = "bottom") +
   labs(x = "Hyperparameter value", 
        y = "Mean absolute error",
        color = "")
@@ -213,12 +214,12 @@ plot_forecast <- df_forecast_aggregated %>%
                                   "hosp",
                                   "forecast"),
                        labels = c("Outcome",
-                                  "Baseline (smoothed hospitalizations)",
+                                  "Baseline",
                                   "Model forecast"))) %>%
   ggplot(mapping = aes(x = outcomeDate, y = value, color = name)) +
   geom_line() +
   scale_color_manual(values = c("#023047", "#8ECAE6", "#FB8500")) +
-  scale_x_date(date_breaks = "2 months", date_labels =  "%m-%y") +
+  scale_x_date(date_breaks = "3 months", date_labels =  "%m-%y") +
   facet_wrap(model ~ ., ncol = 2) +
   theme_minimal() +
   theme(legend.position = "bottom") +
@@ -228,7 +229,7 @@ plot_forecast <- df_forecast_aggregated %>%
 
 ##### aggregation forecast plots
 nb_aggregation <- c(1, 5, 10, 15, 20, 30, 40)
-nb_boot <- 250
+nb_boot <- 10
 
 df_aggregation_forecast <- parallel::mclapply(seq_len(nb_boot),
                                               mc.cores = parallel::detectCores()-2, 
@@ -288,16 +289,17 @@ plot_aggregation <- df_aggregation_forecast %>%
   lims(y = c(0,50)) +
   theme_minimal() +
   labs(x = "Nb of repetition of the model with the best hp set",
-       y = "MAE")
+       y = "Mean absolute error")
 
 plot_before_aggregation_forecast <- df_forecast %>%
+  filter(!grepl(x = model, "^enet")) %>%
   mutate(forecast = if_else(forecast > 200, 200, forecast)) %>%
   ggplot(mapping = aes(x = outcomeDate, y = forecast, color = "Model forecast")) +
   geom_point() +
   geom_line(mapping = aes(y = outcome, color = " Outcome")) +
-  geom_line(mapping = aes(y = hosp, color = "Baseline (smoothed hospitalizations)")) +
+  geom_line(mapping = aes(y = hosp, color = "Baseline")) +
   scale_color_manual(values = c("#023047", "#8ECAE6", "#FB8500")) +
-  scale_x_date(date_breaks = "2 months", date_labels =  "%m-%y") +
+  scale_x_date(date_breaks = "3 months", date_labels =  "%m-%y") +
   facet_wrap(model ~ ., ncol = 2, labeller = labeller(model = model_labels)) +
   theme_minimal() +
   theme(legend.position = "bottom") +
