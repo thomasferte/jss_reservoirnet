@@ -198,7 +198,7 @@ dfOutcome %>%
   ggplot2::ggplot(mapping = aes(x = date, y = value)) +
   geom_line() +
   facet_grid(name ~ ., scales = "free_y") +
-  theme_bw() +
+  theme_minimal() +
   geom_vline(mapping = aes(color = "train-test sets",
                            xintercept = traintest_date)) +
   labs(color = "") +
@@ -244,14 +244,14 @@ reservoir_state <- predict_seq(node = reservoir, X = X)
 
 Now we can visualize node activation using the `plot` function presented at figure \@ref(fig:nodeactivationbad).
 
-```{r nodeactivationbad, fig.cap="Node activation over time."}
+```{r nodeactivationbad, fig.cap="20 random nodes activation over time."}
 plot(reservoir_state)
 ```
 
-Numerous nodes within the system exhibit a consistent equilibrium state. The challenge arises when the ridge output layer attempts to acquire knowledge from these nodes, as they do not convey meaningful information. This issue can be attributed to the disparate scales of the features. To address this concern, a practical approach involves normalizing the features by dividing each of them by their respective maximum values, thereby scaling them within the range of `-1` to `1`.
+Numerous nodes within the system exhibit a consistent equilibrium state. The challenge arises when the ridge output layer attempts to acquire knowledge from these nodes, as they do not convey meaningful information. This issue can be attributed to the disparate scales of the features. To address this concern, a practical approach involves normalizing the features by dividing each of them by their respective maximum values, thereby scaling them within the range of `0` to `1` by dividing by the maximum of the absolute value.
 
 ```{r}
-stand_max <- function(x) return(x/max(x))
+stand_max <- function(x) return(x/max(abs(x)))
 # scaled features
 Xstand <- dfOutcome %>%
   filter(date < traintest_date) %>%
@@ -263,7 +263,7 @@ Xstand <- dfOutcome %>%
 
 We then feed them to the reservoir and plot the node activation again. Compared to \@ref(fig:nodeactivationbad), the obtained node activation \@ref(fig:nodeactivationgood) shows interesting trend outputs as no node seems saturated.
 
-```{r nodeactivationgood, fig.cap="Node acivation over time. Scaled features"}
+```{r nodeactivationgood, fig.cap="20 random node acivation over time. Scaled features."}
 # feed them to the reservoir
 reservoir_state_stand <- predict_seq(node = reservoir,
                                      X = Xstand,
@@ -358,13 +358,13 @@ dfOutcome %>%
   geom_vline(mapping = aes(color = "train-test sets",
                            xintercept = traintest_date)) +
   scale_color_manual(values = c("#3772ff", "#080708", "#df2935")) +
-  theme_bw() +
+  theme_minimal() +
   labs(color = "", x = "Date", y = "Hospitalizations")
 ```
 
-We observe that the model forecast is not fully accurate, both on the test set and the train set. In that case, one option could be to reduce ridge penalization to fit more closely the data, the optimization of ridge hyperparameter will be discussed at section [Study case](#studycase). Another possibility is to ease the learning of the algorithm by forecasting the variation of the hospitalization instead of the number of hospitalized patients. For that step, we will learn on the `outcome_deriv` contained in `yTrain_variation` data which is defined outcome as `outcome_deriv = outcome - hosp`.
+We observe that the model forecast is not fully accurate, both on the test set and the train set. In that case, one option could be to reduce ridge penalization to fit more closely the data, the optimization of ridge hyperparameter will be discussed at section [Study case](#studycase). Another possibility is to ease the learning of the algorithm by forecasting the variation of the hospitalization instead of the number of hospitalized patients. For that step, we will learn on the `outcome_deriv` contained in `yTrain_variation` data which is defined outcome as `outcome_deriv = outcome - hosp`. As depicted at figure \@ref(fig:figForecastDerivvsRaw), this strategy improved the model forecast.
 
-```{r fig.cap="Covid-19 hospitalizations forecast. The model is either trained to forecast the number of hospitalizations (denoted Raw) or the variation of the hospitalizations compared to current level of hospitalisation (denoted Variation)"}
+```{r figForecastDerivvsRaw, fig.cap="Covid-19 hospitalizations forecast. The model is either trained to forecast the number of hospitalizations (denoted Raw) or the variation of the hospitalizations compared to current level of hospitalisation (denoted Variation)"}
 ## Fit reservoir on outcome variation instead of raw outcome
 fit2 <- reservoirnet::reservoirR_fit(node = model,
                                      X = lsdf$xTrain,
@@ -398,8 +398,6 @@ dfOutcome %>%
   theme_minimal() +
   labs(color = "", x = "Date", y = "Hospitalizations")
 ```
-
-We observe an improvement of the forecast compared to the forecast of hospitalization previously discussed. From there, many improvement can be implemented including : frequent update of the model, leverage additional features and hyperparameter optimization. This notions will be discussed in the [Study case section](#studycase).
 
 ## Classification
 
@@ -606,6 +604,8 @@ ggplot(dfplotseqtoseq, mapping = aes(x = Time,
   facet_wrap(uterrance ~ speaker,
              labeller = label_bquote(cols = "speaker" : .(speaker)),
              ncol = 2) +
+  scale_fill_gradient2(low = "#8ECAE6", high = "#FB8500", mid = "#023047",
+                       midpoint = 0) +
   theme_minimal() +
   labs(y = 'Predicted speaker',
        fill = "Prediction score")
@@ -645,7 +645,7 @@ The primary aim of this study is to assess the performance of RC in this forecas
 
 The study utilized aggregated data spanning from May 16, 2020, to January 17, 2022, regarding the COVID-19 epidemic in France, drawing from various sources to enhance forecasting accuracy. These sources encompassed epidemiological statistics from Santé Publique France, weather data from the National Oceanic and Atmospheric Administration (NOAA), both providing department-level data [@etalab_les_2020, @smith_integrated_2011] and Electronic Health Record (EHR) data from the Bordeaux Hospital providing hospital-level data. All data were daily updated. Santé Publique France data included information on hospitalizations, RT-PCR tests, positive RT-PCR results, variant prevalence, and vaccination data, categorized by age groups. NOAA data contributed temperature, wind speed, humidity, and dew point data, allowing for the computation of the COVID-19 Climate Transmissibility Predict Index [@roumagnac_etude_2021]. EHRs data included hospitalizations, ICU admissions, ambulance service records, and emergency unit notes, with relevant COVID-19-related concepts extracted from the notes. Data are discussed more in depth in @ferte_benefit_2022.
 
-First derivative over the last $7$ days were computed to enrich model information. To take into account measurement error and daily noise variation, data were smoothed using a local polynomial regression with a span of 21 days.
+First derivative over the last $7$ days were computed to enrich model information. To take into account measurement error and daily noise variation, data were smoothed using a local polynomial regression with a span of 21 days. As previously described, input features were scaled between -1 and 1 by dividing the observed value by the maximum of the absolute value of the given input feature.
 
 All data are publicly available. Weather data can be obtained from @smith_integrated_2011 using R package `worldmet` [@carslaw_worldmet_2023]. [Vaccine data](https://www.data.gouv.fr/fr/datasets/donnees-relatives-aux-personnes-vaccinees-contre-la-covid-19-1/) can be downloaded from @etalab_les_2020. EHRs data can be downloaded on dryad [@ferte_benefit_2023]. For privacy issues, publicly available EHRs data below 10 patients were obfuscated to 0. For convenience, all data were downloaded, merged and provided as replication material.
 
@@ -664,6 +664,8 @@ The performance of the model was evaluated according to several metrics:
 
 Mean was chosen over median for $MRE$ and $MREB$ because those metrics tend to have extremely high values when the denominator is close to 0 (i.e when the number of hospitalized patients is close to 0 or the number of patients hospitalized at 14 days is close to the current number of hospitalized patients respectively). $MAEB$ and $MREB$ compare model performance to a baseline model which predicts the current number of hospitalized patients at 14 days. Those metrics help to determine the information added by the model and is a good baseline as covid-19 forecast model do not always outperform this basic forecast (@cramer_evaluation_2022).
 
+Because the outcome is obfuscated below 10 hospitalizations for privacy reason, we set both the outcome and the forecast to 10 when the observed value was 0 or the forecasted value was below 10 when evaluating the model performance.
+
 ### Models
 
 We compared RC to elastic-net penalized regression (denoted as Enet). Furthermore we evaluated RC based on several architectures. First we compared RC with a single input scaling common to all features and a RC with on specific input scaling per feature. Second we compared RC where the input layer is connected to the output layer in addition to the connection between reservoir and output layer. Therefore, five models were evaluated :
@@ -674,7 +676,7 @@ We compared RC to elastic-net penalized regression (denoted as Enet). Furthermor
 - RC with multiple input scaling and no connection between input and ouput layers denoted *Multiple IS R %>>% O*
 - RC with multiple input scaling and connection between input and ouput layers denoted *Multiple IS I+R %>>% O*
 
-Because of the randomness of the reservoir, we took the median forecast of 20 reservoir on the train set and 40 reservoir on the test set. In addition, because covid-19 hospitalization is a non-stationary process, models were re-trained everyday using all previous days. To ease computation burden, only one day over two was used to find hyperparameters on the training set.
+Because of the randomness of the reservoir, we took the median forecast of 10 reservoir on the train set to evaluate the performance of a given hyperparameter set. On the test set we aggregated the forecast of 40 reservoir, each of them having one of the 40 best hyperparameter sets found on the train set. In addition, because covid-19 hospitalization is a non-stationary process, models were re-trained everyday using all previous days. To ease computation burden, only one day over two was used to find hyperparameters on the training set.
 
 ### Hyperparameter optimisation using random search
 
@@ -701,21 +703,21 @@ ls_use_case <- readRDS(file = here::here("data/precomputed_results.rds"))
 
 The goal of this task is to predict 14 days ahead the hospitalization. Figure \@ref(fig:ucPresentData) shows both the training set (i.e before 2021-03-01) and the test set where the blue curve correspond to the input features (first derivatives are not shown) and the orange curves correspond to the outcome the model is trained on (i.e the hospitalization variation) and the hospitalizations at 14 days on which the performance metrics are computed. The figures outline that the relation between the input features and the outcome evolve over time and that the time series is not stationary. For instance IPTCC seems correlated to the outcome except that it completely miss the summer 2021 increase.
 
-```{r ucPresentData, echo = FALSE, fig.cap = "Covid-19 epidemic at BUH. Outcome of interest is presented in orange. Model is trained to forecast Outcome curve which corresonds to the difference between Hospitalisatiosn at 14 days and current hospitalisations. Other features are represented in darkblue.", fig.height=8}
+```{r ucPresentData, echo = FALSE, fig.cap = "Covid-19 epidemic at BUH. Outcome of interest is presented in orange. Model is trained to forecast Outcome curve which corresonds to the difference between Hospitalisatiosn at 14 days and current hospitalisations. Other features are scaled (divide by the maximum of the feature) represented in darkblue.", fig.height=8}
 ls_use_case$plot_present_data
 ```
 
 ### Hyperparameter selection
 
-Figure \@ref(fig:ucHyperparam) shows the hyperparameter optimisation using random search for the different RC architectures. We note that the multiple input scaling setting with input layer connected to output layer showed poor performance on the training set which might be due to an unextensive search of hyperparameter regarding the better performance of the common input scaling with connected input layer which is a specific configuration where all input scaling are equal.
+Figure \@ref(fig:ucHyperparam) shows the hyperparameter optimisation using random search for the different RC architectures. We observe that model with multiple input scaling achieved better performance on the train set compared to model with single input scaling which is expected as they can adapt more closely to the data thanks to specific input scaling for each feature.
 
-As expected, we observe that the optimal leaking rate is close to 1 for all RC which is coherent with the short term dynamic of covid-19 epidemic. Trend for other hyperparameter are less clear even though best hyperparameter sets were close for RC with common input scaling.
+As expected, we observe that the optimal leaking rate is above 1e-2 for all RC which is coherent with the short term dynamic of covid-19 epidemic. Trend for other hyperparameter are less clear even though best hyperparameter sets were close for RC with common input scaling and for RC with multiple input scaling.
 
 ```{r ucHyperparam, echo=FALSE, fig.cap="Hyperparameter evaluation on training set by random search. Hp sets with MAE above 30 were removed for clarity of visualisation.", fig.height=8}
 ls_use_case$plot_reservoir_hp
 ```
 
-Figure \@ref(fig:ucHyperparamMultipleIS) shows the hyperparameter search for RC with multiple input scaling and connected input layer. We observe that the random search tend to favor low importance given to vaccine and high importance given to derivative of hospitalisations and derivative of positive RT-PCR in the elderly. The rest of the feature do not show clear pattern. The lack of importance of number of people with one dose of vaccine in this setting was discussed by @ferte_benefit_2022 and related to the lack of vaccinated people in the training set as depicted at figure \@ref(fig:ucPresentData).
+Figure \@ref(fig:ucHyperparamMultipleIS) shows the hyperparameter search for RC with multiple input scaling and connected input layer. We observe that the random search tend to favor high importance given to derivative of positive RT-PCR (including the elderly) and the derivative of IPTCC. The rest of the feature do not show clear pattern.
 
 ```{r ucHyperparamMultipleIS, echo=FALSE, fig.cap="Hyperparameter evaluation on training set by random search of the model with multiple input scaling and no connection between input layer and output layer. Hp sets with MAE above 30 were removed for clarity of visualisation.", fig.height=8}
 ls_use_case$plot_feature_input_scaling
@@ -731,9 +733,11 @@ ls_use_case$table_perf_esn %>%
                linesep = c('', '\\addlinespace'), digits = 2)
 ```
 
-Table \@ref(tab:performance) shows the performance on the test set. Best model according to all metrics was RC with common input scaling and no connection between input and output layers. Having one input scaling per feature did not improve the model which might be due to low generalisability of the hyperparameter of the training set to the test set due to non-stationarity. Additionaly, connecting input layer to output layer did not improve the model, possibly because it add more dimension to the problem while the information provided is already inside the reservoir. We observe that elastic-net did not perform well and stay close to the baseline prediction. However, when the penalisation is updated each day, the peformance improve. This is emphasize the problem of the transferrability of the hyperparameters to which multiple input scaling models seem more sensitive as they have more hyperparameters. For instance, vaccine will keep a low weight whereas its low initial importance quickly increase to mitigate the effect of the high RT-PCR increase on the hospitalisation dynamic.
+Table \@ref(tab:performance) shows the performance on the test set. Best model according to all metrics was RC with common input scaling and connection between input and output layers. Having one input scaling per feature did not improve the model which might be due to low generalisability of the hyperparameter of the training set to the test set due to non-stationarity. Additionaly, connecting input layer to output layer improved the model forecast.
 
-Figure \@ref(fig:forecastwithorwithoutUpdate) shows the forecast of the different models. We note that models struggle to accurately forecast slope shifts. For instance, summer 2021 initial increase is missed by all models, summer decrease is partially anticipated by RC with common IS and no input layer connection, winter 2021 increase is anticipated by all models but they tend to overestimate it because of the rise of vaccine effect.
+We observe that elastic-net did not perform well and stayed close to the baseline prediction. However, when the penalisation is updated each day, the peformance improve. This is emphasize the problem of the transferrability of the hyperparameters to which multiple input scaling models seem more sensitive as they have more hyperparameters.
+
+Figure \@ref(fig:forecastwithorwithoutUpdate) shows the forecast of the different models. We note that models struggle to accurately forecast slope shifts. For instance, summer 2021 initial increase is partially predicted by all models but its decrease is not well predicted. Winter 2021 increase is anticipated by all models but they tend to overestimate it because of the rise of vaccine effect.
 
 ```{r forecastwithorwithoutUpdate, echo = FALSE, fig.cap = "Reservoir computing forecast depending on the setting with and without monthly update. Red line is the median forecast of 40 reservoirs. Grey lines are individual forecast of each of the 40 reservoir.", fig.height=8}
 ls_use_case$plot_forecast
@@ -741,13 +745,13 @@ ls_use_case$plot_forecast
 
 ### Number of model to aggregate
 
-Figures \@ref(fig:ucAggregationSpread) and figure \@ref(fig:ucAggregationNb) show 40 model forecast for each of the best hyperparameter set of the different reservoir architecture (i.e the same set of hyperparameters as used for test set forecast). It means at each day, the same set of hyperparameter is kept but a new reservoir is generated. Due to the internal random connection of the reservoir, it might result in forecast stochasticity. We observe that models with ridge penalty higher than 1 (i.e all models except multiple IS with input connection) tend to have more stable forecast but that the addition of input layer connection provided some extreme forecasted value. This extreme value phenomena is relatively rare because it is corrected when the number of model for aggregation is above 15.
+Figures \@ref(fig:ucAggregationSpread) show the individual forecast for the 40 best set of hyperparameters of each RC architecture. Due to the internal random connection of the reservoir, we observe forecast stochasticity and relying on only one forecast is unreliable. We explored the number of model needed at figure \@ref(fig:ucAggregationNb) which shows that after 10 models, forecast is stable and even 5 models for the simpler model with common input scaling which rely on less hyperparamters.
 
-```{r ucAggregationSpread, echo = FALSE, fig.cap = "Individual forecast of 40 repetition of the best hyperparameter set for the different RC configuration. Forecast value above 200 were set to 200.", fig.height=6}
+```{r ucAggregationSpread, echo = FALSE, fig.cap = "Individual forecast the 40 best hyperparameter sets for the different RC configuration. Forecast value above 200 were set to 200 for clarity.", fig.height=6}
 ls_use_case$plot_before_aggregation_forecast
 ```
 
-```{r ucAggregationNb, echo = FALSE, fig.cap = "It shows the impact of aggregating several RC with the best set of HP for each RC configuration. It has small interest when the input layer was not connected to output layer but significantly improves the performance otherwise.", fig.height=6}
+```{r ucAggregationNb, echo = FALSE, fig.cap = "Mean absolute error depending on the number of aggregated reservoir.", fig.height=6}
 ls_use_case$plot_aggregation
 ```
 
@@ -755,11 +759,11 @@ ls_use_case$plot_aggregation
 
 In this specific application, we have demonstrated that RC exhibits commendable performance in comparison to Elastic-net, which serves as the reference model. Furthermore, we highlight the inherent challenges in forecasting within this context, primarily stemming from the non-stationarity of the time series.
 
-This study represents a novel contribution to epidemic forecasting utilizing reservoir computing. Notably, previous literature predominantly focused on simpler problems characterized by fewer input features or shorter evaluation periods. Our findings underscore the potential of this approach for future epidemics, suggesting its potential to surpass more traditional epidemiological tools while maintaining a lightweight model structure compared to other recurrent neural networks (RNNs).
-
 All computations in this study were conducted using the reservoirnet package, and the entire codebase is accessible on GitHub (**todo : open to the public**). The package demonstrates its efficacy in implementing various reservoir architectures, including connection between the input layer and the output layer, as well as the utilization of several input scaling, all within the context of a real-world use case.
 
-Given the substantial number of hyperparameters involved, we acknowledge that random search may not be the most efficient optimization algorithm. We have retained this approach for the sake of simplicity in this tutorial paper; however, meta-heuristic approaches, particularly those utilizing evolutionary algorithms, may prove more efficient, especially when employing multiple input scaling.
+Given the substantial number of hyperparameters involved, we acknowledge that random search may not be the most efficient optimization algorithm. We have retained this approach for the sake of simplicity in this tutorial paper; however, meta-heuristic approaches, particularly those utilizing evolutionary algorithms, may prove more efficient, especially when employing multiple input scaling [@bala_applications_2018].
+
+This study represents a novel contribution to epidemic forecasting utilizing reservoir computing. Notably, previous literature predominantly focused on simpler problems characterized by fewer input features or shorter evaluation periods [@ghosh_reservoir_2021, @liu_nanophotonic_2023, @ray_optimized_2021]. Our findings underscore the potential of this approach for future epidemics, suggesting its potential to surpass more traditional epidemiological tools while maintaining a lightweight model structure compared to other recurrent neural networks (RNNs).
 
 It is worth noting that all models, including the @ferte_benefit_2022 models, encounter challenges in accurately anticipating slope shifts, indicating the need for further investigation. Specifically, additional work is warranted to extend the application of RC to high-dimensional settings, building upon the insights gained from models based on a more extensive set of features.
 

@@ -99,9 +99,9 @@ df_hp <- readRDS(hp_file) %>%
                 n_try = n(),
                 rank_perf_color = case_when(rank_perf == 1 ~ "Best",
                                             rank_perf <= 10 ~ "Top 10",
-                                            rank_perf <=  100 ~ "Top 100",
-                                            rank_perf > 100 ~ "Others"),
-                rank_perf_color = factor(rank_perf_color, levels = c("Best", "Top 10", "Top 100", "Others")),
+                                            rank_perf <=  40 ~ "Top 40",
+                                            rank_perf > 40 ~ "Others"),
+                rank_perf_color = factor(rank_perf_color, levels = c("Best", "Top 10", "Top 40", "Others")),
                 mean_absolute_error = if_else(mean_absolute_error >= 30, 30, mean_absolute_error)) %>%
   ungroup() %>%
   dplyr::select(all_of(c("mean_absolute_error",
@@ -160,7 +160,7 @@ plot_reservoir_hp <- df_hp %>%
 
 plot_feature_input_scaling <- df_hp %>%
   filter(HP %in% hp_features,
-         model == "multiple_input_scaling") %>%
+         model == "multiple_input_scaling_linked_source") %>%
   ggplot(mapping = aes(x = HP_value, 
                        y = mean_absolute_error,
                        color = rank_perf_color)) +
