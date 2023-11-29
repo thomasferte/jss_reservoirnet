@@ -4,7 +4,7 @@
 # les directives Slurm vont ici:
 
 # Your job name (displayed by the queue)
-#SBATCH -J JSSCOVIDiter20linkFALSE
+#SBATCH -J JSSCOVIDiter10linkFALSE
 
 # walltime (hh:mm::ss)
 #SBATCH -t 03:00:00

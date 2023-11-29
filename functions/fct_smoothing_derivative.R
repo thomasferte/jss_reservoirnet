@@ -44,7 +44,17 @@ fct_smoothing_derivative <- function(data,
     # remove missing values due to derivative computation
     na.omit() %>%
     # get the outcome derivative
-    mutate(outcomeDeriv = outcome - hosp) %>%
+    mutate(outcomeDeriv = outcome - hosp,
+           outcomeHosp = hosp) %>%
+    mutate(across(!START_DATE & !outcome & !outcomeDate & !outcomeDeriv & !outcomeHosp,
+                  function(x){
+                    maxX <- max(abs(x))
+                    if(maxX == 0){
+                      return(x)
+                    } else {
+                      return(x/maxX)
+                    }
+                  })) %>%
     return()
 }
 

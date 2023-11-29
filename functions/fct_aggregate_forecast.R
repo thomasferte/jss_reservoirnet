@@ -10,10 +10,10 @@ fct_aggregate_forecast <- function(data_i,
                                    forecast_deriv){
   data_i %>%
     dplyr::mutate(forecast_deriv = forecast_deriv,
-                  forecast = forecast_deriv + hosp,
+                  forecast = forecast_deriv + outcomeHosp,
                   forecast = if_else(forecast < 0, 0, forecast)) %>%
     dplyr::slice_max(outcomeDate) %>%
-    dplyr::select(START_DATE, outcomeDate, outcome, forecast, hosp) %>%
+    dplyr::select(START_DATE, outcomeDate, outcome, forecast, hosp = outcomeHosp) %>%
     return()
 }
 
