@@ -14,10 +14,10 @@ warmup = 30
 units = 500
 nb_iter = 40
 ##### LOAD BEST HP SETS
-hp_sets = list(common_input_scaling = "data/common_input_scaling_11423760/",
-               common_input_scaling_linked_source = "data/common_input_scaling_11426140/",
-               multiple_input_scaling = "data/multiple_input_scaling_11423760/",
-               multiple_input_scaling_linked_source = "data/multiple_input_scaling_11426140/",
+hp_sets = list(common_input_scaling = "data/common_input_scaling_11559350/",
+               common_input_scaling_linked_source = "data/common_input_scaling_11559390/",
+               multiple_input_scaling = "data/multiple_input_scaling_11559350/",
+               multiple_input_scaling_linked_source = "data/multiple_input_scaling_11559390/",
                enet = "data/enet_1/") %>%
   lapply(function(path_i){
     list.files(path_i, full.names = TRUE) %>%

@@ -7,7 +7,7 @@
 #SBATCH -J JSSCOVIDiter10linkFALSE
 
 # walltime (hh:mm::ss)
-#SBATCH -t 03:00:00
+#SBATCH -t 01:30:00
 
 
 # change working directory
