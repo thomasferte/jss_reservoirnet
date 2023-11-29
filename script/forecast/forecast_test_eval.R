@@ -5,7 +5,7 @@ library(ggplot2)
 source(here::here("functions/fct_smoothing_derivative.R"))
 
 ##### load data
-ls_files_results <- list.files("data/results_forecast_testset_11495493/", full.names = TRUE)
+ls_files_results <- list.files("data/results_forecast_testset_11561202/", full.names = TRUE)
 ls_files_results_res <- grep(ls_files_results, pattern = "hp_sets", value = TRUE, invert = TRUE)
 hp_file <- grep(ls_files_results, pattern = "hp_sets", value = TRUE)
 df_obfuscated_epidemio <- readRDS("data/df_obfuscated_epidemio.rds")
@@ -76,7 +76,7 @@ data_i <- fct_smoothing_derivative(data = df_obfuscated_epidemio,
                                    forecast_days = 14)
 
 plot_present_data <- data_i %>%
-  select(-START_DATE, -ends_with("rolDeriv7")) %>%
+  select(-START_DATE, -outcomeHosp, -ends_with("rolDeriv7")) %>%
   tidyr::pivot_longer(cols = -"outcomeDate") %>%
   mutate(name = factor(name, levels = names(feature_labels), labels = feature_labels)) %>%
   ggplot(mapping = aes(x = outcomeDate, y = value, color = name)) +
@@ -195,6 +195,9 @@ df_forecast_aggregated <- df_forecast %>%
                                labels = model_labels))
 
 table_perf_esn <- df_forecast_aggregated %>%
+  dplyr::mutate(forecast = if_else(forecast < 10, 10, forecast),
+                hosp = if_else(hosp < 10, 10, hosp),
+                outcome = if_else(outcome < 10, 10, outcome)) %>%
   dplyr::mutate(absolute_error = abs(forecast - outcome),
                 relative_error = absolute_error/outcome,
                 baseline_absolute_error = abs(hosp - outcome),
@@ -229,7 +232,7 @@ plot_forecast <- df_forecast_aggregated %>%
 
 ##### aggregation forecast plots
 nb_aggregation <- c(1, 5, 10, 15, 20, 30, 40)
-nb_boot <- 10
+nb_boot <- 250
 
 df_aggregation_forecast <- parallel::mclapply(seq_len(nb_boot),
                                               mc.cores = parallel::detectCores()-2, 
@@ -238,12 +241,12 @@ df_aggregation_forecast <- parallel::mclapply(seq_len(nb_boot),
                                                        function(nb_aggregation_i){
                                                          df_forecast %>%
                                                            filter(!grepl(x = model, pattern = "enet")) %>%
-                                                           select(model, iter) %>%
+                                                           select(model, rank) %>%
                                                            distinct() %>%
                                                            group_by(model) %>%
                                                            sample_n(nb_aggregation_i, replace = TRUE) %>%
                                                            left_join(df_forecast,
-                                                                     by = c("model", "iter"),
+                                                                     by = c("model", "rank"),
                                                                      relationship = "many-to-many") %>%
                                                            group_by(START_DATE, outcomeDate, model) %>%
                                                            summarise(outcome = unique(outcome),
