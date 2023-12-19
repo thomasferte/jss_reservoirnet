@@ -728,6 +728,22 @@ Figure \@ref(fig:ucHyperparamMultipleIS) shows the hyperparameter search for RC 
 ls_use_case$plot_feature_input_scaling
 ```
 
+### Input feature importance
+
+For the model where the input layer is directly connected to the output layer, we can compare the coefficient of the output layer estimated for the input layer and the reservoir nodes. We can also compare the coefficient given to the input layer by the output layer in the reservoir and the coefficient estimated by the elastic-net model.
+
+Figure \@ref(fig:importanceReservoir) outlines the rank of input layer compared to all the connections to the output layer including the 500 nodes and the 16 features (bias is not represented). We observe that the model with common input scaling tend to give less weight to the raw features compared to the model with multiple input scaling.
+
+```{r importanceReservoir, fig.cap="Mean feature importance of the 40 best hyperparameter sets by model. Only models with connection between input and output layer are included. The more weight the output layer attributes to the input layer, the closer its rank will be to 1 and the more the feature is important. Rank is obtained by comparing the feature output layer coefficient and all other connection coefficient."}
+ls_use_case$plot_reservoir_importance
+```
+
+Figure \@ref(fig:importanceReservoirvsEnet)
+
+```{r importanceReservoirvsEnet, fig.cap="Mean feature coefficient of the 40 best hyperparameter sets by model and the elastic-net model. Only models with connection between input and output layer are included."}
+ls_use_case$plot_importance
+```
+
 ### Forecast performance
 
 ```{r performance, echo = FALSE}
