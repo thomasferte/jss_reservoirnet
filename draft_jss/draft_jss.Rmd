@@ -116,9 +116,9 @@ The leaking rate $\alpha$ defines the update rate of the nodes. The closer $\alp
 
 *XH : Ah tu utilises une matrice dense ? si oui, t’as fait ça dans toutes tes simulations ? habituellement on utilise plutôt 10 ou 20% de connectivité, surtout si on prend un distribution bimodale comme bernouilli. En tous cas il faut pas préciser que soit doit être dense ici.*
 
-*TF : on a pris les paramètres par défaut de reservoirpy, si j'ai bien compris, la matrice est générée par la fonction reservoirpy.mat_gen.bernoulli qui par défaut est dense (connectivity = 1)*
+*TF : my bad, j'avais mal lu la doc. On utilise l'implémentation de base de reservoirpy qui est effectivement sparse à 0.1 par défaut.*
 
-$W_{in}$ is a dense matrix generated using a Bernoulli (bimodal) distribution where each value can be either $-I_{scale}(m)$ or $I_{scale}(m)$ with an equal probability where  $m = 1, …, M$ corresponds to a given feature in the input layer. The input scaling, denoted $I_{scale}$, is a hyperparameter coefficient often common to all features from the input layer or specific to each feature $m$. In that case, the more important the feature is, the greater should be its input scaling. $W$ is a matrix (usually sparse) where values are generated from a Gaussian distribution $\mathcal{N}(0,1)$. Then, the $W$ matrix is scaled according to the defined spectral radius, a hyperparameter defining the highest eigen value of $W$.
+$W_{in}$ is a matrix (usually sparse) generated using a Bernoulli (bimodal) distribution where each value can be either $-I_{scale}(m)$ or $I_{scale}(m)$ with an equal probability where $m = 1, …, M$ corresponds to a given feature in the input layer. The input scaling, denoted $I_{scale}$, is a hyperparameter coefficient often common to all features from the input layer or specific to each feature $m$. In that case, the more important the feature is, the greater should be its input scaling. $W$ is a matrix (usually sparse) where values are generated from a Gaussian distribution $\mathcal{N}(0,1)$. Then, the $W$ matrix is scaled according to the defined spectral radius, a hyperparameter defining the highest eigen value of $W$.
 
 The final layer is a linear regression with ridge penalization where the
 explanatory features are the reservoir state and the variable to be
