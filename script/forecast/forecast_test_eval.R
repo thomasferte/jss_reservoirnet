@@ -217,6 +217,7 @@ plot_importance <- df_importance_no_reservoir %>%
   scale_color_manual(values = c("#023047", "#8ECAE6", "#FB8500")) +
   theme_minimal() +
   theme(legend.position = "bottom") +
+  guides(color=guide_legend(nrow=2)) +
   labs(x = "Coefficient", y = "", color = "", fill = "")
 
 df_importance_reservoir <- df_importance %>%
@@ -232,11 +233,9 @@ df_importance_reservoir <- df_importance %>%
   mutate(rank = dense_rank(desc(abs(importance)))) %>%
   ungroup() %>%
   filter(feature %in% feature_labels) %>%
-  group_by(model, hp_set, feature) %>%
-  summarise(rank = mean(rank), .groups = "drop") %>%
   mutate(feature = factor(feature, levels = ordered_feature_imp))
 
-# mean feature importance by hp set and by esn model.
+# feature importance by hp set and by esn model.
 nb_features = df_importance$feature %>% unique() %>% length()
 plot_reservoir_importance <- df_importance_reservoir %>%
   ggplot(mapping = aes(y = feature, color = model, x = rank)) +
