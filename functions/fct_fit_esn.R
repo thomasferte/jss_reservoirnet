@@ -13,6 +13,7 @@
 #' @param Xtest The test X matrix
 #' @param seed The seed determining reservoir connections
 #' @param link_source Should the input layer be directly linked to output layer (default FALSE)
+#' @param importance Should the feature importance be returned (defaut is FALSE)
 #'
 #' @import reservoirnet
 #'
@@ -28,7 +29,8 @@ fct_fit_esn <- function(X,
                         sr,
                         ridge,
                         input_scaling,
-                        seed){
+                        seed,
+                        importance = FALSE){
   ##### setup reservoir
   ## check if input scaling is a dataframe, if so, select the correct order of input scaling 
   if(is.data.frame(input_scaling)){
@@ -59,6 +61,28 @@ fct_fit_esn <- function(X,
   res <- reservoirnet::predict_seq(node = fit$fit,
                                    X = Xtest,
                                    reset = TRUE)
+  res <- as.numeric(res)
   ##### return results
-  return(as.numeric(res))
+  if(importance){
+    dfimp = model$get_param(readout$name)$Wout %>%
+      as.matrix() %>%
+      as.data.frame() %>%
+      mutate(feature = paste0("reservoir", 1:as.numeric(units)), .before = 1)
+    
+    if(link_source){
+      size_concatenator = model$nodes[2]
+      if(size_concatenator$input_dim[0] == ncol(X) & size_concatenator$input_dim[1] == as.numeric(units)){
+        dfimp <- dfimp %>%
+          mutate(feature = c(colnames(X), paste0("reservoir", 1:as.numeric(units))), .before = 1)
+      } else if(size_concatenator$input_dim[0] == as.numeric(units) & size_concatenator$input_dim[1] == ncol(X)){
+        dfimp <- dfimp %>%
+          mutate(feature = c(paste0("reservoir", 1:as.numeric(units)), colnames(X)), .before = 1)
+      }
+    }
+    colnames(dfimp) <- c("feature", "importance")
+    return(list(pred = res,
+                dfimp = dfimp))
+  } else {
+    return(res)
+  }
 }

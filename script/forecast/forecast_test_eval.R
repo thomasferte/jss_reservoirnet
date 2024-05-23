@@ -1,11 +1,12 @@
 ##### load packages and functions
 library(dplyr)
 library(ggplot2)
+library(scales)
 
 source(here::here("functions/fct_smoothing_derivative.R"))
 
 ##### load data
-ls_files_results <- list.files("data/results_forecast_testset_11561202/", full.names = TRUE)
+ls_files_results <- list.files("data/results_forecast_testset_11922514/", full.names = TRUE)
 ls_files_results_res <- grep(ls_files_results, pattern = "hp_sets", value = TRUE, invert = TRUE)
 hp_file <- grep(ls_files_results, pattern = "hp_sets", value = TRUE)
 df_obfuscated_epidemio <- readRDS("data/df_obfuscated_epidemio.rds")
@@ -140,7 +141,8 @@ plot_reservoir_hp <- df_hp %>%
   filter(HP %in% hp_features_reservoir) %>%
   ggplot(mapping = aes(x = HP_value, 
                        y = mean_absolute_error,
-                       color = rank_perf_color)) +
+                       color = rank_perf_color,
+                       alpha = rank_perf_color)) +
   geom_point() +
   facet_grid(model ~ HP, scales = "free_x",
              labeller = labeller(model = model_labels,
@@ -149,21 +151,25 @@ plot_reservoir_hp <- df_hp %>%
                 breaks = c(1e-10, 1e-5, 1e0, 1e5, 1e10),
                 minor_breaks = 10^(seq(-10, 5))) +
   scale_color_manual(values = c("blue", "#E76F51", "#E9C46A", "#2A9D8F")) +
+  scale_alpha_manual(values = c(1, 1, 1, 0.1)) +
   lims(y = c(15, 30)) +
   theme_minimal() + 
-  theme(strip.text.y = element_text(angle = 0),
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0),
+        strip.text.y = element_text(angle = 0),
         strip.text.x = element_text(angle = 90)) +
-  theme(legend.position = "bottom") +
   labs(x = "Hyperparameter value", 
        y = "Mean absolute error",
-       color = "") 
+       color = "",
+       alpha = "") 
 
 plot_feature_input_scaling <- df_hp %>%
   filter(HP %in% hp_features,
          model == "multiple_input_scaling_linked_source") %>%
   ggplot(mapping = aes(x = HP_value, 
                        y = mean_absolute_error,
-                       color = rank_perf_color)) +
+                       color = rank_perf_color,
+                       alpha = rank_perf_color)) +
   geom_point() +
   facet_wrap(HP ~ ., scales = "free_x",
              labeller = labeller(model = model_labels,
@@ -174,14 +180,83 @@ plot_feature_input_scaling <- df_hp %>%
                 minor_breaks = 10^(seq(-10, 5))) +
   scale_y_continuous(breaks = c(15, 20, 30)) +
   scale_color_manual(values = c("blue", "#E76F51", "#E9C46A", "#2A9D8F")) +
+  scale_alpha_manual(values = c(1, 1, 1, 0.1)) +
   theme_minimal() + 
-  theme(legend.position = "bottom") +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0)) +
   labs(x = "Hyperparameter value", 
        y = "Mean absolute error",
        color = "")
 
+##### importance plots
+df_importance <- lapply(ls_files_results_res, function(x) readRDS(x)$dfImp) %>%
+  dplyr::bind_rows()
+
+df_importance_no_reservoir <- df_importance %>%
+  dplyr::mutate(model = factor(model,
+                               levels = names(model_labels),
+                               labels = model_labels),
+                feature = factor(feature,
+                                 levels = names(feature_labels),
+                                 labels = feature_labels)) %>%
+  filter(!is.na(feature)) %>%
+  group_by(feature, model, hp_set) %>%
+  summarise(importance = mean(importance), .groups = "drop")
+
+ordered_feature_imp <- df_importance_no_reservoir %>%
+  filter(model == "Elastic-net") %>%
+  arrange(importance) %>%
+  pull(feature) %>%
+  as.character()
+
+S_sqrt <- function(x){sign(x)*sqrt(abs(x))}
+IS_sqrt <- function(x){x^2*sign(x)}
+S_sqrt_trans <- function() trans_new("S_sqrt",S_sqrt,IS_sqrt)
+
+# mean feature coefficient by hp set and by model.
+plot_importance <- df_importance_no_reservoir %>%
+  mutate(feature = factor(feature, levels = ordered_feature_imp)) %>%
+  ggplot(mapping = aes(y = feature, color = model, x = importance)) +
+  geom_boxplot(position = position_dodge(width = 0.9)) +
+  geom_vline(xintercept = 0, color = "black", linetype = 2) +
+  scale_alpha_manual(values = c(0.2, 0.2, 1)) +
+  scale_x_continuous(trans = "S_sqrt", breaks = c(-100, -50, -10, -2, 0, 2, 10, 50, 100)) +
+  scale_color_manual(values = c("#023047", "#8ECAE6", "#FB8500")) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  guides(color=guide_legend(nrow=2)) +
+  labs(x = "Coefficient", y = "", color = "", fill = "")
+
+df_importance_reservoir <- df_importance %>%
+  dplyr::mutate(model = factor(model,
+                               levels = names(model_labels),
+                               labels = model_labels),
+                feature = factor(feature,
+                                 levels = c(names(feature_labels), paste0("reservoir", 1:500)),
+                                 labels = c(feature_labels, paste0("reservoir", 1:500)))) %>%
+  filter(model != "Elastic-net") %>%
+  select(outcomeDate, model, hp_set, feature, importance) %>%
+  group_by(outcomeDate, model, hp_set) %>%
+  mutate(rank = dense_rank(desc(abs(importance)))) %>%
+  ungroup() %>%
+  filter(feature %in% feature_labels) %>%
+  mutate(feature = factor(feature, levels = ordered_feature_imp))
+
+# feature importance by hp set and by esn model.
+nb_features = df_importance$feature %>% unique() %>% length()
+plot_reservoir_importance <- df_importance_reservoir %>%
+  ggplot(mapping = aes(y = feature, color = model, x = rank)) +
+  geom_boxplot(position = position_dodge(width = 0.9)) +
+  scale_alpha_manual(values = c(0.2, 0.2, 1)) +
+  scale_color_manual(values = c("#023047", "#8ECAE6")) +
+  scale_fill_manual(values = c("#023047", "#8ECAE6")) +
+  scale_x_reverse(breaks = c(1, 100, 200, 300, 400, nb_features)) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(x = "Rank", y = "", color = "", fill = "")
+
 ##### forecast plots
-df_forecast <- lapply(ls_files_results_res, readRDS) %>%
+df_forecast <- lapply(ls_files_results_res, function(x) readRDS(x)$dfPred) %>%
   dplyr::bind_rows()
 
 df_forecast_aggregated <- df_forecast %>%
@@ -298,7 +373,7 @@ plot_before_aggregation_forecast <- df_forecast %>%
   filter(!grepl(x = model, "^enet")) %>%
   mutate(forecast = if_else(forecast > 200, 200, forecast)) %>%
   ggplot(mapping = aes(x = outcomeDate, y = forecast, color = "Model forecast")) +
-  geom_point() +
+  geom_point(alpha = 0.1) +
   geom_line(mapping = aes(y = outcome, color = " Outcome")) +
   geom_line(mapping = aes(y = hosp, color = "Baseline")) +
   scale_color_manual(values = c("#023047", "#8ECAE6", "#FB8500")) +
@@ -317,5 +392,7 @@ saveRDS(object = list(plot_present_data = plot_present_data,
                       table_perf_esn = table_perf_esn,
                       plot_before_aggregation_forecast = plot_before_aggregation_forecast,
                       plot_aggregation = plot_aggregation,
-                      plot_forecast = plot_forecast),
+                      plot_forecast = plot_forecast,
+                      plot_reservoir_importance = plot_reservoir_importance,
+                      plot_importance = plot_importance),
         file = "data/precomputed_results.rds")
