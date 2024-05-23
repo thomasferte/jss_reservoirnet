@@ -13,3 +13,7 @@
 *.pdf
 *.err
 *.out
+data/common_input_scaling*
+data/multiple_input_scaling*
+data/results_forecast*
+data/enet*

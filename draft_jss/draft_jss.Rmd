@@ -347,7 +347,7 @@ vec_pred <- reservoirnet::predict_seq(node = fit$fit,
                                       reset = TRUE)
 ```
 
-```{r fig.cap="Forecast"}
+```{r fig.cap="Forecast", fig.height=4, fig.width=7}
 dfOutcome %>%
   mutate(pred = vec_pred) %>%
   na.omit() %>%
@@ -356,16 +356,22 @@ dfOutcome %>%
                           color = "observed")) +
   geom_line(mapping = aes(y = pred,
                           color = "forecast")) +
-  geom_vline(mapping = aes(color = "train-test sets",
-                           xintercept = traintest_date)) +
-  scale_color_manual(values = c("#3772ff", "#080708", "#df2935")) +
+  annotate("rect",
+           xmin = traintest_date,
+           xmax = max(dfOutcome$outcomeDate, na.rm = T),
+           ymin = 0,
+           ymax = max(dfOutcome$outcome, na.rm = T)*1.1, 
+           alpha = .2) +
+  annotate("text", label = "Test set", x = as.Date("2022-08-01"), y = 2200, size = 7) +
+  annotate("text", label = "Train set", x = as.Date("2021-03-01"), y = 2200, size = 7) +
+  scale_color_manual(values = c("#3772ff", "#080708")) +
   theme_minimal() +
   labs(color = "", x = "Date", y = "Hospitalizations")
 ```
 
 We observe that the model forecast is not fully accurate, both on the test set and the train set. In that case, one option could be to reduce ridge penalization to fit more closely the data, the optimization of ridge hyperparameter will be discussed at section [Study case](#studycase). Another possibility is to ease the learning of the algorithm by forecasting the variation of the hospitalization instead of the number of hospitalized patients. For that step, we will learn on the `outcome_deriv` contained in `yTrain_variation` data which is defined outcome as `outcome_deriv = outcome - hosp`. As depicted at figure \@ref(fig:figForecastDerivvsRaw), this strategy improved the model forecast.
 
-```{r figForecastDerivvsRaw, fig.cap="Covid-19 hospitalizations forecast. The model is either trained to forecast the number of hospitalizations (denoted Raw) or the variation of the hospitalizations compared to current level of hospitalisation (denoted Variation)"}
+```{r figForecastDerivvsRaw, fig.cap="Covid-19 hospitalizations forecast. The model is either trained to forecast the number of hospitalizations (denoted Raw) or the variation of the hospitalizations compared to current level of hospitalisation (denoted Variation)", fig.height=4, fig.width=7}
 ## Fit reservoir on outcome variation instead of raw outcome
 fit2 <- reservoirnet::reservoirR_fit(node = model,
                                      X = lsdf$xTrain,
@@ -391,12 +397,19 @@ dfOutcome %>%
                           color = "observed")) +
   geom_line(mapping = aes(y = Forecast,
                           color = "Forecast")) +
-  geom_vline(mapping = aes(color = "train-test sets",
-                           xintercept = traintest_date)) +
+  annotate("rect",
+           xmin = traintest_date,
+           xmax = max(dfOutcome$outcomeDate, na.rm = T),
+           ymin = 0,
+           ymax = max(dfOutcome$outcome, na.rm = T)*1.1, 
+           alpha = .2) +
+  annotate("text", label = "Test set", x = as.Date("2022-08-01"), y = 2200, size = 5) +
+  annotate("text", label = "Train set", x = as.Date("2021-03-01"), y = 2200, size = 5) +
   facet_wrap(Outcome_type ~ .,
              labeller = label_bquote(cols = "Outcome" : .(Outcome_type))) +
-  scale_color_manual(values = c("#3772ff", "#080708", "#df2935")) +
+  scale_color_manual(values = c("#3772ff", "#080708")) +
   theme_minimal() +
+  theme(legend.position = "bottom") +
   labs(color = "", x = "Date", y = "Hospitalizations")
 ```
 

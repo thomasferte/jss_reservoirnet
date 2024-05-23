@@ -141,7 +141,8 @@ plot_reservoir_hp <- df_hp %>%
   filter(HP %in% hp_features_reservoir) %>%
   ggplot(mapping = aes(x = HP_value, 
                        y = mean_absolute_error,
-                       color = rank_perf_color)) +
+                       color = rank_perf_color,
+                       alpha = rank_perf_color)) +
   geom_point() +
   facet_grid(model ~ HP, scales = "free_x",
              labeller = labeller(model = model_labels,
@@ -150,21 +151,25 @@ plot_reservoir_hp <- df_hp %>%
                 breaks = c(1e-10, 1e-5, 1e0, 1e5, 1e10),
                 minor_breaks = 10^(seq(-10, 5))) +
   scale_color_manual(values = c("blue", "#E76F51", "#E9C46A", "#2A9D8F")) +
+  scale_alpha_manual(values = c(1, 1, 1, 0.1)) +
   lims(y = c(15, 30)) +
   theme_minimal() + 
-  theme(strip.text.y = element_text(angle = 0),
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0),
+        strip.text.y = element_text(angle = 0),
         strip.text.x = element_text(angle = 90)) +
-  theme(legend.position = "bottom") +
   labs(x = "Hyperparameter value", 
        y = "Mean absolute error",
-       color = "") 
+       color = "",
+       alpha = "") 
 
 plot_feature_input_scaling <- df_hp %>%
   filter(HP %in% hp_features,
          model == "multiple_input_scaling_linked_source") %>%
   ggplot(mapping = aes(x = HP_value, 
                        y = mean_absolute_error,
-                       color = rank_perf_color)) +
+                       color = rank_perf_color,
+                       alpha = rank_perf_color)) +
   geom_point() +
   facet_wrap(HP ~ ., scales = "free_x",
              labeller = labeller(model = model_labels,
@@ -175,8 +180,10 @@ plot_feature_input_scaling <- df_hp %>%
                 minor_breaks = 10^(seq(-10, 5))) +
   scale_y_continuous(breaks = c(15, 20, 30)) +
   scale_color_manual(values = c("blue", "#E76F51", "#E9C46A", "#2A9D8F")) +
+  scale_alpha_manual(values = c(1, 1, 1, 0.1)) +
   theme_minimal() + 
-  theme(legend.position = "bottom") +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0)) +
   labs(x = "Hyperparameter value", 
        y = "Mean absolute error",
        color = "")
