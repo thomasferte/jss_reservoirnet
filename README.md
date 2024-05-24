@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/704114868.svg)](https://zenodo.org/doi/10.5281/zenodo.11281341)
+
 # Introduction
 
 This GitHub repository contains the code used for the draft "Reservoir Computing in R: a Tutorial for Using reservoirnet to Predict Complex Time-Series". The repository is organized as follows:
