@@ -186,7 +186,8 @@ plot_feature_input_scaling <- df_hp %>%
         axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0)) +
   labs(x = "Hyperparameter value", 
        y = "Mean absolute error",
-       color = "")
+       color = "",
+       alpha = "")
 
 ##### importance plots
 df_importance <- lapply(ls_files_results_res, function(x) readRDS(x)$dfImp) %>%
